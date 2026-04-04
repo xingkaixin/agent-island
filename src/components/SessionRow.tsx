@@ -1,6 +1,33 @@
 import type { SessionView } from "../types/agent";
 import AgentAvatar from "./AgentAvatar";
 
+function statusLabel(session: SessionView) {
+  switch (session.status) {
+    case "idle":
+      return "空闲";
+    case "thinking":
+      return "思考中";
+    case "tool":
+      return "调用工具";
+    case "shell":
+      return "执行命令";
+    case "mcp":
+      return "调用 MCP";
+    case "file":
+      return "读写文件";
+    case "compact":
+      return "压缩上下文";
+    case "attention":
+      return "需要处理";
+    case "done":
+      return "已结束";
+    case "error":
+      return "出错";
+    default:
+      return "运行中";
+  }
+}
+
 function formatDuration(durationMs: number) {
   const totalSeconds = Math.max(0, Math.floor(durationMs / 1000));
   const minutes = Math.floor(totalSeconds / 60);
@@ -9,8 +36,6 @@ function formatDuration(durationMs: number) {
 }
 
 export default function SessionRow({ session }: { session: SessionView }) {
-  const sessionLabel = session.id.length > 14 ? `${session.id.slice(0, 14)}…` : session.id;
-
   return (
     <div className="flex items-center gap-3 rounded-2xl border border-[var(--line)] bg-white/60 px-3 py-2">
       <AgentAvatar
@@ -20,17 +45,14 @@ export default function SessionRow({ session }: { session: SessionView }) {
       />
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2 text-sm font-semibold">
-          <span>{sessionLabel}</span>
-          <span className="rounded-full bg-black/5 px-2 py-0.5 text-[11px] font-medium text-[var(--text-secondary)]">
-            {formatDuration(session.durationMs)}
-          </span>
+          <span className="truncate">{session.cwd ?? "未提供路径"}</span>
         </div>
         <div className="truncate text-xs text-[var(--text-secondary)]">
-          {session.statusDetail}
+          {statusLabel(session)} · {session.statusDetail}
         </div>
       </div>
-      <div className="max-w-32 truncate text-right text-[11px] text-[var(--text-secondary)]">
-        {session.cwd ?? "未提供路径"}
+      <div className="shrink-0 text-right text-[11px] text-[var(--text-secondary)]">
+        {formatDuration(session.durationMs)}
       </div>
     </div>
   );

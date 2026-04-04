@@ -17,8 +17,8 @@ use session::{AppStateSnapshot, InstallStatusItem, LogEntry, SessionStore};
 use settings::{apply_launch_at_login, load_preferences, save_preferences, UserPreferences};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconEvent};
 use tauri::{
-    include_image, ActivationPolicy, Emitter, Manager, PhysicalPosition, Rect, Runtime,
-    WebviewUrl, WebviewWindow, WebviewWindowBuilder,
+    include_image, ActivationPolicy, Emitter, Manager, PhysicalPosition, Rect, Runtime, WebviewUrl,
+    WebviewWindow, WebviewWindowBuilder,
 };
 use tauri_plugin_autostart::MacosLauncher;
 use uuid::Uuid;
@@ -40,6 +40,13 @@ enum MenuBarState {
     Attention,
 }
 
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+struct MenuBarSummary {
+    running_count: usize,
+    idle_count: usize,
+    attention_count: usize,
+}
+
 pub struct AppServices {
     sessions: Mutex<SessionStore>,
     preferences: Mutex<UserPreferences>,
@@ -51,7 +58,11 @@ impl AppServices {
     fn snapshot(&self) -> AppStateSnapshot {
         let sessions = self.sessions.lock().unwrap().snapshot();
         let preferences = self.preferences.lock().unwrap().clone();
-        let logs = self.sessions.lock().unwrap().recent_logs(preferences.log_limit);
+        let logs = self
+            .sessions
+            .lock()
+            .unwrap()
+            .recent_logs(preferences.log_limit);
         let install_status = install_status();
 
         AppStateSnapshot {
@@ -80,33 +91,156 @@ fn derive_menu_bar_state(snapshot: &AppStateSnapshot) -> MenuBarState {
     }
 }
 
-fn tray_title_for(state: MenuBarState, phase: usize, session_count: usize) -> Option<String> {
-    match state {
-        MenuBarState::Idle => Some(String::new()),
-        MenuBarState::Running => {
-            let frames = [" ·🏇", " 🏇·", " ᯓ🏇", " 🏇ᯓ"];
-            let frame = frames[phase % frames.len()];
-            Some(format!("{frame} {session_count}"))
-        }
-        MenuBarState::Attention => {
-            let frames = [" 👋", " 𖹭", " 👋"];
-            Some(frames[phase % frames.len()].to_string())
-        }
-    }
+fn derive_menu_bar_summary(snapshot: &AppStateSnapshot) -> MenuBarSummary {
+    snapshot.sessions.iter().fold(
+        MenuBarSummary::default(),
+        |mut summary, session| {
+            if session.has_pending_permission || session.needs_user_attention {
+                summary.attention_count += 1;
+            } else if session.status == "idle" {
+                summary.idle_count += 1;
+            } else {
+                summary.running_count += 1;
+            }
+            summary
+        },
+    )
 }
 
-fn sync_tray_state(app: &tauri::AppHandle, services: &AppServices, phase: usize) -> tauri::Result<()> {
+fn tray_title_for(summary: MenuBarSummary, phase: usize) -> Option<String> {
+    if summary == MenuBarSummary::default() {
+        return Some(String::new());
+    }
+
+    let running_frames = ["🏇", "🏃"];
+    let attention_frames = ["❓", "✋"];
+    let mut parts = Vec::new();
+
+    if summary.running_count > 0 {
+        parts.push(format!(
+            "{}{}",
+            running_frames[phase % running_frames.len()],
+            summary.running_count
+        ));
+    }
+    if summary.idle_count > 0 {
+        parts.push(format!("💤{}", summary.idle_count));
+    }
+    if summary.attention_count > 0 {
+        parts.push(format!(
+            "{}{}",
+            attention_frames[phase % attention_frames.len()],
+            summary.attention_count
+        ));
+    }
+
+    Some(parts.join(" "))
+}
+
+fn tray_tooltip_for(summary: MenuBarSummary) -> String {
+    if summary == MenuBarSummary::default() {
+        return "AgentIsland".into();
+    }
+
+    let mut parts = Vec::new();
+    if summary.running_count > 0 {
+        parts.push(format!("运行中 {}", summary.running_count));
+    }
+    if summary.idle_count > 0 {
+        parts.push(format!("睡觉 {}", summary.idle_count));
+    }
+    if summary.attention_count > 0 {
+        parts.push(format!("待处理 {}", summary.attention_count));
+    }
+
+    format!("AgentIsland: {}", parts.join("，"))
+}
+
+fn sync_tray_state(
+    app: &tauri::AppHandle,
+    services: &AppServices,
+    phase: usize,
+) -> tauri::Result<()> {
     let snapshot = services.snapshot();
     let state = derive_menu_bar_state(&snapshot);
+    let summary = derive_menu_bar_summary(&snapshot);
     if let Some(tray) = app.tray_by_id(TRAY_ID) {
         tray.set_tooltip(Some(match state {
-            MenuBarState::Idle => "AgentIsland",
-            MenuBarState::Running => "AgentIsland: agent 正在运行",
-            MenuBarState::Attention => "AgentIsland: 等待你的处理",
+            MenuBarState::Idle => tray_tooltip_for(summary),
+            MenuBarState::Running => tray_tooltip_for(summary),
+            MenuBarState::Attention => tray_tooltip_for(summary),
         }))?;
-        tray.set_title(tray_title_for(state, phase, snapshot.sessions.len()))?;
+        tray.set_title(tray_title_for(summary, phase))?;
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use chrono::Utc;
+
+    use super::{derive_menu_bar_summary, tray_title_for, AppStateSnapshot, MenuBarSummary};
+    use crate::session::SessionView;
+    use crate::settings::UserPreferences;
+
+    fn session(status: &str, needs_user_attention: bool, has_pending_permission: bool) -> SessionView {
+        SessionView {
+            id: format!("session-{status}"),
+            source: "codex".into(),
+            title: "test".into(),
+            status: status.into(),
+            status_detail: status.into(),
+            cwd: None,
+            started_at: Utc::now(),
+            duration_ms: 0,
+            has_pending_permission,
+            needs_user_attention,
+            subagent_count: 0,
+        }
+    }
+
+    fn snapshot(sessions: Vec<SessionView>) -> AppStateSnapshot {
+        AppStateSnapshot {
+            sessions,
+            permission_request: None,
+            install_status: Vec::new(),
+            preferences: UserPreferences::default(),
+            logs: Vec::new(),
+        }
+    }
+
+    #[test]
+    fn menu_bar_summary_counts_attention_before_idle_or_running() {
+        let summary = derive_menu_bar_summary(&snapshot(vec![
+            session("running", false, false),
+            session("idle", false, false),
+            session("running", true, false),
+            session("idle", false, true),
+        ]));
+
+        assert_eq!(
+            summary,
+            MenuBarSummary {
+                running_count: 1,
+                idle_count: 1,
+                attention_count: 2,
+            }
+        );
+    }
+
+    #[test]
+    fn tray_title_includes_running_idle_and_attention_counts() {
+        let title = tray_title_for(
+            MenuBarSummary {
+                running_count: 2,
+                idle_count: 1,
+                attention_count: 3,
+            },
+            0,
+        );
+
+        assert_eq!(title.as_deref(), Some("🏇2 💤1 ❓3"));
+    }
 }
 
 fn emit_state(app: &tauri::AppHandle, services: &AppServices) -> tauri::Result<()> {
@@ -192,7 +326,9 @@ fn ensure_popover_window<R: Runtime>(window: &WebviewWindow<R>) {
     let _ = window.set_title("AgentIsland");
 }
 
-fn fallback_position<R: Runtime>(window: &WebviewWindow<R>) -> Result<PhysicalPosition<f64>, String> {
+fn fallback_position<R: Runtime>(
+    window: &WebviewWindow<R>,
+) -> Result<PhysicalPosition<f64>, String> {
     if let Ok(Some(monitor)) = window.current_monitor() {
         let size = monitor.size();
         let x = ((size.width as f64 - POPOVER_WIDTH) / 2.0).max(0.0);
@@ -228,7 +364,10 @@ fn position_popover_window<R: Runtime>(
         .map_err(|error| error.to_string())
 }
 
-fn show_popover_window<R: Runtime>(app: &tauri::AppHandle<R>, services: &AppServices) -> Result<(), String> {
+fn show_popover_window<R: Runtime>(
+    app: &tauri::AppHandle<R>,
+    services: &AppServices,
+) -> Result<(), String> {
     let window = app
         .get_webview_window("main")
         .ok_or_else(|| "main window not found".to_string())?;
@@ -294,7 +433,10 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_opener::init())
-        .plugin(tauri_plugin_autostart::init(MacosLauncher::LaunchAgent, None))
+        .plugin(tauri_plugin_autostart::init(
+            MacosLauncher::LaunchAgent,
+            None,
+        ))
         .setup(|app| {
             let app_handle = app.handle().clone();
             let app_data_dir = app

@@ -39,7 +39,10 @@ pub fn ensure_bridge_installed() -> Result<(), Box<dyn std::error::Error>> {
     let bridge_dir = Path::new(&home).join(".agentisland/bin");
     fs::create_dir_all(&bridge_dir)?;
     let bridge_path = bridge_dir.join("agentisland-bridge");
-    fs::write(&bridge_path, include_str!("../../scripts/agentisland-bridge"))?;
+    fs::write(
+        &bridge_path,
+        include_str!("../../scripts/agentisland-bridge"),
+    )?;
 
     #[cfg(unix)]
     {
@@ -135,7 +138,11 @@ fn remove_agentisland_entries(value: &mut Value) {
     let keys = hooks.keys().cloned().collect::<Vec<_>>();
     for key in keys {
         if let Some(entries) = hooks.get_mut(&key).and_then(Value::as_array_mut) {
-            entries.retain(|entry| !entry.to_string().contains(".agentisland/bin/agentisland-bridge"));
+            entries.retain(|entry| {
+                !entry
+                    .to_string()
+                    .contains(".agentisland/bin/agentisland-bridge")
+            });
             if entries.is_empty() {
                 hooks.remove(&key);
             }
@@ -212,7 +219,9 @@ fn build_cursor_hooks(mut root: Value) -> Value {
             }]),
         );
     }
-    root.as_object_mut().unwrap().insert("version".into(), json!(1));
+    root.as_object_mut()
+        .unwrap()
+        .insert("version".into(), json!(1));
     root
 }
 
@@ -283,7 +292,10 @@ fn latest_backup_path(path: &Path) -> Option<PathBuf> {
         .filter(|candidate| {
             candidate
                 .file_name()
-                .map(|name| name.to_string_lossy().starts_with(&format!("{file_name}.backup.")))
+                .map(|name| {
+                    name.to_string_lossy()
+                        .starts_with(&format!("{file_name}.backup."))
+                })
                 .unwrap_or(false)
         })
         .collect::<Vec<_>>();

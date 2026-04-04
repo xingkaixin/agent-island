@@ -57,6 +57,9 @@ export default function Settings() {
         <section className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
           <div className="rounded-[28px] border border-[var(--line)] bg-white/80 p-6">
             <div className="text-lg font-semibold">Hook 注入</div>
+            <div className="mt-1 text-sm text-[var(--text-secondary)]">
+              Hook 只负责把事件上报给 AgentIsland；应用未启动时会上报失败并静默跳过，不影响 agent 自身执行。
+            </div>
             <div className="mt-4 space-y-4">
               {agents.map((agent) => {
                 const item = installStatus.find((status) => status.agent === agent);

@@ -11,6 +11,23 @@ import {
   openSettingsWindow,
 } from "./lib/tauri";
 import { useSessionStore } from "./store/sessions";
+import type { SessionView } from "./types/agent";
+
+function summarizeSessions(sessions: SessionView[]) {
+  return sessions.reduce(
+    (summary, session) => {
+      if (session.hasPendingPermission || session.needsUserAttention) {
+        summary.attention += 1;
+      } else if (session.status === "idle") {
+        summary.idle += 1;
+      } else {
+        summary.running += 1;
+      }
+      return summary;
+    },
+    { running: 0, idle: 0, attention: 0 },
+  );
+}
 
 export default function App() {
   const { hydrated, sessions, permissionRequest, replaceState } = useSessionStore();
@@ -55,6 +72,7 @@ export default function App() {
     () => sessions.find((session) => session.needsUserAttention || session.hasPendingPermission),
     [sessions],
   );
+  const sessionSummary = useMemo(() => summarizeSessions(sessions), [sessions]);
 
   useEffect(() => {
     if (windowLabel !== "main") {
@@ -75,11 +93,15 @@ export default function App() {
     return <Settings />;
   }
 
-  const statusText = hasAttention || permissionRequest
-    ? "Agent 需要你回到终端处理"
-    : sessions.length > 0
-      ? `${sessions.length} 个 agent 正在运行`
-      : "暂无运行中的 agent";
+  const statusText = sessions.length === 0
+    ? "暂无活跃 agent"
+    : [
+        sessionSummary.running > 0 ? `${sessionSummary.running} 个运行中` : null,
+        sessionSummary.idle > 0 ? `${sessionSummary.idle} 个睡觉中` : null,
+        sessionSummary.attention > 0 ? `${sessionSummary.attention} 个待处理` : null,
+      ]
+        .filter(Boolean)
+        .join(" · ");
 
   return (
     <div className="min-h-screen bg-transparent p-3 text-[var(--text-primary)]">
@@ -94,7 +116,9 @@ export default function App() {
               )}
               <span>AgentIsland</span>
             </div>
-            <div className="mt-1 text-sm text-[var(--text-secondary)]">{statusText}</div>
+            <div className="mt-1 text-sm text-[var(--text-secondary)]">
+              {permissionRequest || hasAttention ? `需要你回到终端处理 · ${statusText}` : statusText}
+            </div>
             <div className="mt-3 flex items-center gap-2">
               {sessions.length > 0 ? (
                 sessions.slice(0, 5).map((session) => (
@@ -150,7 +174,7 @@ export default function App() {
 
           <section className="rounded-[24px] border border-[var(--line)] bg-white/70 p-3">
             <div className="mb-3 flex items-center justify-between">
-              <div className="text-sm font-semibold">当前运行中的 Agent</div>
+              <div className="text-sm font-semibold">当前活跃 Agent</div>
               <div className="text-xs text-[var(--text-secondary)]">
                 {hydrated ? `${sessions.length} 个` : "同步中"}
               </div>

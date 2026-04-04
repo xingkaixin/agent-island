@@ -3,6 +3,7 @@ import json
 import os
 import socket
 import sys
+from errno import ECONNREFUSED, ECONNRESET, ENOENT, ENOTCONN, EPIPE
 from datetime import datetime, timezone
 
 
@@ -44,6 +45,13 @@ def first_str(raw, paths, default):
 def socket_path():
     home = os.environ.get("HOME", "/tmp")
     return os.path.join(home, ".agentisland", "run", "agentisland.sock")
+
+
+def should_ignore_ipc_error(error):
+    return isinstance(error, FileNotFoundError) or (
+        isinstance(error, OSError)
+        and error.errno in {ENOENT, ECONNREFUSED, ECONNRESET, ENOTCONN, EPIPE}
+    )
 
 
 def main():
@@ -103,24 +111,29 @@ def main():
     sock_path = socket_path()
     if not os.path.exists(sock_path):
         append_log("socket-missing", {"socketPath": sock_path})
-        print(
-            f"agentisland-bridge: socket not found at {sock_path}. Launch AgentIsland first.",
-            file=sys.stderr,
-        )
-        sys.exit(1)
+        return
 
     client = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
     try:
-        client.connect(sock_path)
-        client.sendall(request)
-        client.shutdown(socket.SHUT_WR)
+        try:
+            client.connect(sock_path)
+            client.sendall(request)
+            client.shutdown(socket.SHUT_WR)
 
-        chunks = []
-        while True:
-            chunk = client.recv(65536)
-            if not chunk:
-                break
-            chunks.append(chunk)
+            chunks = []
+            while True:
+                chunk = client.recv(65536)
+                if not chunk:
+                    break
+                chunks.append(chunk)
+        except Exception as error:
+            if should_ignore_ipc_error(error):
+                append_log(
+                    "ipc-unavailable",
+                    {"socketPath": sock_path, "message": str(error)},
+                )
+                return
+            raise
     finally:
         client.close()
 

@@ -29,10 +29,7 @@ pub fn socket_path() -> PathBuf {
         .join("agentisland.sock")
 }
 
-pub fn start_ipc_server(
-    app: tauri::AppHandle,
-    services: Arc<AppServices>,
-) -> tauri::Result<()> {
+pub fn start_ipc_server(app: tauri::AppHandle, services: Arc<AppServices>) -> tauri::Result<()> {
     let socket_path = socket_path();
     if let Some(parent) = socket_path.parent() {
         std::fs::create_dir_all(parent)?;
@@ -45,49 +42,47 @@ pub fn start_ipc_server(
     let app_handle = app.clone();
     let services_handle = services.clone();
 
-    std::thread::spawn(move || {
-        loop {
-            let Ok((mut stream, _)) = std_listener.accept() else {
-                continue;
-            };
+    std::thread::spawn(move || loop {
+        let Ok((mut stream, _)) = std_listener.accept() else {
+            continue;
+        };
 
-            let app = app_handle.clone();
-            let services = services_handle.clone();
+        let app = app_handle.clone();
+        let services = services_handle.clone();
 
-            std::thread::spawn(move || {
-                let mut buffer = Vec::new();
-                if std::io::Read::read_to_end(&mut stream, &mut buffer).is_err() {
-                    return;
-                }
+        std::thread::spawn(move || {
+            let mut buffer = Vec::new();
+            if std::io::Read::read_to_end(&mut stream, &mut buffer).is_err() {
+                return;
+            }
 
-                let request = serde_json::from_slice::<IpcRequest>(&buffer);
-                let response = match request {
-                    Ok(payload) => match on_event_received(&app, &services, payload.event) {
-                        Ok(()) => IpcResponse {
-                            ok: true,
-                            decision: None,
-                            error: None,
-                        },
-                        Err(error) => IpcResponse {
-                            ok: false,
-                            decision: None,
-                            error: Some(error),
-                        },
+            let request = serde_json::from_slice::<IpcRequest>(&buffer);
+            let response = match request {
+                Ok(payload) => match on_event_received(&app, &services, payload.event) {
+                    Ok(()) => IpcResponse {
+                        ok: true,
+                        decision: None,
+                        error: None,
                     },
                     Err(error) => IpcResponse {
                         ok: false,
                         decision: None,
-                        error: Some(error.to_string()),
+                        error: Some(error),
                     },
-                };
+                },
+                Err(error) => IpcResponse {
+                    ok: false,
+                    decision: None,
+                    error: Some(error.to_string()),
+                },
+            };
 
-                let _ = std::io::Write::write_all(
-                    &mut stream,
-                    &serde_json::to_vec(&response).unwrap_or_default(),
-                );
-                let _ = stream.shutdown(std::net::Shutdown::Write);
-            });
-        }
+            let _ = std::io::Write::write_all(
+                &mut stream,
+                &serde_json::to_vec(&response).unwrap_or_default(),
+            );
+            let _ = stream.shutdown(std::net::Shutdown::Write);
+        });
     });
 
     Ok(())

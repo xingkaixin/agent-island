@@ -41,7 +41,15 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     });
 
     let socket_path = socket_path();
-    let mut socket = UnixStream::connect(socket_path)?;
+    if !socket_path.exists() {
+        return Ok(());
+    }
+
+    let mut socket = match UnixStream::connect(&socket_path) {
+        Ok(socket) => socket,
+        Err(error) if should_ignore_ipc_error(&error) => return Ok(()),
+        Err(error) => return Err(error.into()),
+    };
     socket.write_all(serde_json::to_string(&payload)?.as_bytes())?;
     socket.shutdown(std::net::Shutdown::Write)?;
 
@@ -67,37 +75,54 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
+fn should_ignore_ipc_error(error: &std::io::Error) -> bool {
+    matches!(
+        error.kind(),
+        std::io::ErrorKind::NotFound
+            | std::io::ErrorKind::ConnectionRefused
+            | std::io::ErrorKind::ConnectionReset
+            | std::io::ErrorKind::NotConnected
+            | std::io::ErrorKind::BrokenPipe
+    )
+}
+
 fn extract_session_id(raw: &Value) -> String {
-    first_str(raw, &[
-        &["sessionId"],
-        &["session_id"],
-        &["conversationId"],
-        &["conversation_id"],
-        &["chatId"],
-        &["chat_id"],
-        &["payload", "sessionId"],
-        &["payload", "session_id"],
-    ])
+    first_str(
+        raw,
+        &[
+            &["sessionId"],
+            &["session_id"],
+            &["conversationId"],
+            &["conversation_id"],
+            &["chatId"],
+            &["chat_id"],
+            &["payload", "sessionId"],
+            &["payload", "session_id"],
+        ],
+    )
     .unwrap_or("unknown-session")
     .to_string()
 }
 
 fn extract_kind(raw: &Value) -> String {
-    first_str(raw, &[
-        &["hookEventName"],
-        &["hook_event_name"],
-        &["eventName"],
-        &["event_name"],
-        &["event"],
-        &["kind"],
-        &["type"],
-        &["payload", "hookEventName"],
-        &["payload", "hook_event_name"],
-        &["payload", "eventName"],
-        &["payload", "event"],
-        &["payload", "kind"],
-        &["payload", "type"],
-    ])
+    first_str(
+        raw,
+        &[
+            &["hookEventName"],
+            &["hook_event_name"],
+            &["eventName"],
+            &["event_name"],
+            &["event"],
+            &["kind"],
+            &["type"],
+            &["payload", "hookEventName"],
+            &["payload", "hook_event_name"],
+            &["payload", "eventName"],
+            &["payload", "event"],
+            &["payload", "kind"],
+            &["payload", "type"],
+        ],
+    )
     .unwrap_or("unknown")
     .to_string()
 }

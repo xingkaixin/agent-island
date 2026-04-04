@@ -7,6 +7,8 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
+const SESSION_IDLE_TIMEOUT_MS: i64 = 30_000;
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AgentEvent {
@@ -86,6 +88,7 @@ struct SessionRecord {
     status_detail: String,
     cwd: Option<String>,
     started_at: DateTime<Utc>,
+    last_event_at: DateTime<Utc>,
     has_pending_permission: bool,
     needs_user_attention: bool,
     subagent_count: u32,
@@ -116,7 +119,11 @@ impl SessionStore {
             .append(true)
             .open(&self.log_path)
         {
-            let _ = writeln!(file, "{}", serde_json::to_string(&entry).unwrap_or_default());
+            let _ = writeln!(
+                file,
+                "{}",
+                serde_json::to_string(&entry).unwrap_or_default()
+            );
         }
 
         self.logs.push(entry);
@@ -141,26 +148,27 @@ impl SessionStore {
     pub fn apply_event(&mut self, event: &AgentEvent) {
         let now = event.timestamp.unwrap_or_else(Utc::now);
         let session_id = self.resolve_session_id(event);
-        let session = self.sessions.entry(session_id.clone()).or_insert_with(|| SessionRecord {
-            id: session_id.clone(),
-            source: event.source.clone(),
-            title: format!("{} session", event.source),
-            status: "running".into(),
-            status_detail: "running".into(),
-            cwd: event
-                .payload
-                .get("cwd")
-                .and_then(Value::as_str)
-                .map(ToOwned::to_owned),
-            started_at: now,
-            has_pending_permission: false,
-            needs_user_attention: false,
-            subagent_count: 0,
-        });
+        let session = self
+            .sessions
+            .entry(session_id.clone())
+            .or_insert_with(|| SessionRecord {
+                id: session_id.clone(),
+                source: event.source.clone(),
+                title: format!("{} session", event.source),
+                status: "running".into(),
+                status_detail: "running".into(),
+                cwd: session_cwd(event),
+                started_at: now,
+                last_event_at: now,
+                has_pending_permission: false,
+                needs_user_attention: false,
+                subagent_count: 0,
+            });
         session.id = session_id;
+        session.last_event_at = now;
 
-        if let Some(cwd) = event.payload.get("cwd").and_then(Value::as_str) {
-            session.cwd = Some(cwd.to_string());
+        if let Some(cwd) = session_cwd(event) {
+            session.cwd = Some(cwd);
         }
 
         let clears_attention = matches!(
@@ -186,6 +194,7 @@ impl SessionStore {
                 | "file_read"
                 | "afterFileEdit"
                 | "file_edit"
+                | "afterAgentResponse"
         );
         if clears_attention {
             session.needs_user_attention = false;
@@ -221,7 +230,15 @@ impl SessionStore {
                 session.status = "compact".into();
                 session.status_detail = "compacting context".into();
             }
-            "notification" | "Notification" | "afterAgentThought" => {
+            "afterAgentThought" => {
+                session.status = "thinking".into();
+                session.status_detail = "thinking".into();
+            }
+            "afterAgentResponse" => {
+                session.status = "idle".into();
+                session.status_detail = "idle".into();
+            }
+            "notification" | "Notification" => {
                 session.status = "attention".into();
                 session.status_detail = describe_attention_event(event);
                 session.needs_user_attention = true;
@@ -274,7 +291,7 @@ impl SessionStore {
                 if session.has_pending_permission || session.needs_user_attention {
                     session.status = "attention".into();
                 } else {
-                    session.status = "running".into();
+                    session.status = "idle".into();
                     session.status_detail = "idle".into();
                 }
             }
@@ -306,7 +323,8 @@ impl SessionStore {
             .sessions
             .values()
             .filter(|session| {
-                session.source == event.source && !matches!(session.status.as_str(), "done" | "error")
+                session.source == event.source
+                    && !matches!(session.status.as_str(), "done" | "error")
             })
             .map(|session| session.id.clone())
             .collect::<Vec<_>>();
@@ -323,7 +341,10 @@ impl SessionStore {
         let mut sessions = self
             .sessions
             .values()
-            .filter(|session| !matches!(session.status.as_str(), "done" | "error"))
+            .filter(|session| {
+                !matches!(session.status.as_str(), "done" | "error")
+                    && !is_expired_session(session, now)
+            })
             .cloned()
             .map(|session| SessionView {
                 id: session.id,
@@ -357,19 +378,20 @@ fn is_unknown_session_id(session_id: &str) -> bool {
 }
 
 fn describe_attention_event(event: &AgentEvent) -> String {
-    if is_permission_prompt(event) {
-        let summary = permission_summary(event)
-            .unwrap_or_else(|| "等待你回到终端处理权限请求".to_string());
-        return format!("Permission Approval · {summary}");
-    }
-
     if is_ask_user_question(event) {
-        let summary = ask_user_summary(event)
-            .unwrap_or_else(|| "等待你回到终端回答问题".to_string());
+        let summary =
+            ask_user_summary(event).unwrap_or_else(|| "等待你回到终端回答问题".to_string());
         return format!("AskUserQuestion · {summary}");
     }
 
-    event.payload
+    if is_permission_prompt(event) {
+        let summary =
+            permission_summary(event).unwrap_or_else(|| "等待你回到终端处理权限请求".to_string());
+        return format!("Permission Approval · {summary}");
+    }
+
+    event
+        .payload
         .get("message")
         .or_else(|| event.payload.get("summary"))
         .or_else(|| event.payload.get("title"))
@@ -379,6 +401,10 @@ fn describe_attention_event(event: &AgentEvent) -> String {
 }
 
 fn is_permission_prompt(event: &AgentEvent) -> bool {
+    if is_ask_user_question(event) {
+        return false;
+    }
+
     if event
         .payload
         .get("notification_type")
@@ -467,15 +493,44 @@ fn first_question<'a>(event: &'a AgentEvent) -> Option<&'a Value> {
 }
 
 fn tool_input<'a>(event: &'a AgentEvent) -> Option<&'a Value> {
-    event.payload
+    event
+        .payload
         .get("tool_input")
         .or_else(|| event.payload.get("toolInput"))
 }
 
 fn tool_name(event: &AgentEvent) -> Option<&str> {
-    event.payload
+    event
+        .payload
         .get("toolName")
         .or_else(|| event.payload.get("tool_name"))
         .or_else(|| event.payload.get("tool"))
         .and_then(Value::as_str)
+}
+
+fn session_cwd(event: &AgentEvent) -> Option<String> {
+    event
+        .payload
+        .get("cwd")
+        .and_then(Value::as_str)
+        .map(ToOwned::to_owned)
+        .or_else(|| {
+            event
+                .payload
+                .get("workspace_roots")
+                .and_then(Value::as_array)
+                .and_then(|roots| roots.first())
+                .and_then(Value::as_str)
+                .map(ToOwned::to_owned)
+        })
+}
+
+fn is_expired_session(session: &SessionRecord, now: DateTime<Utc>) -> bool {
+    if session.has_pending_permission || session.needs_user_attention {
+        return false;
+    }
+
+    session.source != "claude"
+        && matches!(session.status.as_str(), "idle" | "thinking" | "running")
+        && (now - session.last_event_at).num_milliseconds() > SESSION_IDLE_TIMEOUT_MS
 }

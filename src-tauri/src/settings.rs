@@ -22,7 +22,9 @@ impl Default for UserPreferences {
     }
 }
 
-pub fn load_preferences(app_data_dir: &Path) -> Result<UserPreferences, Box<dyn std::error::Error>> {
+pub fn load_preferences(
+    app_data_dir: &Path,
+) -> Result<UserPreferences, Box<dyn std::error::Error>> {
     let path = app_data_dir.join("preferences.json");
     if !path.exists() {
         return Ok(UserPreferences::default());
