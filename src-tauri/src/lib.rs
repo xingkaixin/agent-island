@@ -113,9 +113,6 @@ fn emit_state(app: &tauri::AppHandle, services: &AppServices) -> tauri::Result<(
     let snapshot = services.snapshot();
     app.emit("app-state-updated", snapshot.clone())?;
     sync_tray_state(app, services, 0)?;
-    if derive_menu_bar_state(&snapshot) == MenuBarState::Attention {
-        let _ = show_popover_window(app, services);
-    }
     Ok(())
 }
 

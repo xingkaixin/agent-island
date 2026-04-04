@@ -223,37 +223,14 @@ impl SessionStore {
             }
             "notification" | "Notification" | "afterAgentThought" => {
                 session.status = "attention".into();
-                session.status_detail = event
-                    .payload
-                    .get("message")
-                    .or_else(|| event.payload.get("summary"))
-                    .or_else(|| event.payload.get("title"))
-                    .and_then(Value::as_str)
-                    .unwrap_or("needs user attention")
-                    .to_string();
+                session.status_detail = describe_attention_event(event);
                 session.needs_user_attention = true;
             }
             "permission_request" | "PermissionRequest" => {
                 session.status = "attention".into();
                 session.has_pending_permission = true;
                 session.needs_user_attention = true;
-                let tool_name = event
-                    .payload
-                    .get("toolName")
-                    .or_else(|| event.payload.get("tool_name"))
-                    .or_else(|| event.payload.get("tool"))
-                    .and_then(Value::as_str)
-                    .unwrap_or("Unknown Tool")
-                    .to_string();
-                let summary = event
-                    .payload
-                    .get("summary")
-                    .and_then(Value::as_str)
-                    .or_else(|| event.payload.get("message").and_then(Value::as_str))
-                    .or_else(|| event.payload.get("toolInputSummary").and_then(Value::as_str))
-                    .unwrap_or("等待审批")
-                    .to_string();
-                session.status_detail = format!("PermissionRequest · {tool_name} · {summary}");
+                session.status_detail = describe_attention_event(event);
             }
             "permission_resolved" => {
                 session.has_pending_permission = false;
@@ -293,7 +270,15 @@ impl SessionStore {
                 session.status = "file".into();
                 session.status_detail = "editing file".into();
             }
-            "stop" | "Stop" | "session_end" | "SessionEnd" => {
+            "stop" | "Stop" => {
+                if session.has_pending_permission || session.needs_user_attention {
+                    session.status = "attention".into();
+                } else {
+                    session.status = "running".into();
+                    session.status_detail = "idle".into();
+                }
+            }
+            "session_end" | "SessionEnd" => {
                 session.status = "done".into();
                 session.status_detail = "done".into();
                 session.has_pending_permission = false;
@@ -369,4 +354,128 @@ impl SessionStore {
 fn is_unknown_session_id(session_id: &str) -> bool {
     let trimmed = session_id.trim();
     trimmed.is_empty() || trimmed == "unknown-session"
+}
+
+fn describe_attention_event(event: &AgentEvent) -> String {
+    if is_permission_prompt(event) {
+        let summary = permission_summary(event)
+            .unwrap_or_else(|| "等待你回到终端处理权限请求".to_string());
+        return format!("Permission Approval · {summary}");
+    }
+
+    if is_ask_user_question(event) {
+        let summary = ask_user_summary(event)
+            .unwrap_or_else(|| "等待你回到终端回答问题".to_string());
+        return format!("AskUserQuestion · {summary}");
+    }
+
+    event.payload
+        .get("message")
+        .or_else(|| event.payload.get("summary"))
+        .or_else(|| event.payload.get("title"))
+        .and_then(Value::as_str)
+        .unwrap_or("needs user attention")
+        .to_string()
+}
+
+fn is_permission_prompt(event: &AgentEvent) -> bool {
+    if event
+        .payload
+        .get("notification_type")
+        .and_then(Value::as_str)
+        == Some("permission_prompt")
+    {
+        return true;
+    }
+
+    let Some(question) = first_question(event) else {
+        return false;
+    };
+
+    let header = question
+        .get("header")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    let prompt = question
+        .get("question")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+
+    header.contains("权限")
+        || header.contains("Permission")
+        || prompt.contains("权限")
+        || prompt.contains("是否批准")
+        || prompt.contains("批准")
+        || prompt.contains("是否允许")
+        || prompt.contains("允许读取")
+        || prompt.contains("允许执行")
+}
+
+fn is_ask_user_question(event: &AgentEvent) -> bool {
+    tool_name(event) == Some("AskUserQuestion")
+}
+
+fn permission_summary(event: &AgentEvent) -> Option<String> {
+    if let Some(question) = first_question(event)
+        .and_then(|question| question.get("question"))
+        .and_then(Value::as_str)
+    {
+        return Some(question.replace('\n', " "));
+    }
+
+    let tool_name = tool_name(event).unwrap_or("Tool");
+    let input = tool_input(event)?;
+
+    if let Some(command) = input
+        .get("command")
+        .or_else(|| input.get("cmd"))
+        .and_then(Value::as_str)
+    {
+        return Some(format!("{tool_name} · {command}"));
+    }
+
+    if let Some(path) = input
+        .get("file_path")
+        .or_else(|| input.get("filePath"))
+        .or_else(|| input.get("path"))
+        .and_then(Value::as_str)
+    {
+        return Some(format!("{tool_name} · {path}"));
+    }
+
+    if let Some(description) = input.get("description").and_then(Value::as_str) {
+        return Some(format!("{tool_name} · {description}"));
+    }
+
+    let preview = serde_json::to_string(input).ok()?;
+    Some(format!("{tool_name} · {preview}"))
+}
+
+fn ask_user_summary(event: &AgentEvent) -> Option<String> {
+    let question = first_question(event)?;
+    question
+        .get("question")
+        .and_then(Value::as_str)
+        .map(|text| text.replace('\n', " "))
+}
+
+fn first_question<'a>(event: &'a AgentEvent) -> Option<&'a Value> {
+    tool_input(event)
+        .and_then(|input| input.get("questions"))
+        .and_then(Value::as_array)
+        .and_then(|questions| questions.first())
+}
+
+fn tool_input<'a>(event: &'a AgentEvent) -> Option<&'a Value> {
+    event.payload
+        .get("tool_input")
+        .or_else(|| event.payload.get("toolInput"))
+}
+
+fn tool_name(event: &AgentEvent) -> Option<&str> {
+    event.payload
+        .get("toolName")
+        .or_else(|| event.payload.get("tool_name"))
+        .or_else(|| event.payload.get("tool"))
+        .and_then(Value::as_str)
 }
