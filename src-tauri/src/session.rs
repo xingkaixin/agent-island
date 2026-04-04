@@ -161,6 +161,16 @@ impl SessionStore {
             .collect()
     }
 
+    /// Clears in-memory logs and truncates the persisted JSONL file.
+    pub fn clear_logs(&mut self) -> Result<(), std::io::Error> {
+        self.logs.clear();
+        if let Some(parent) = self.log_path.parent() {
+            let _ = std::fs::create_dir_all(parent);
+        }
+        std::fs::File::create(&self.log_path)?;
+        Ok(())
+    }
+
     pub fn log_timeline(&self, limit: usize, bridge_log_path: &PathBuf) -> Vec<TimelineLogEntry> {
         let mut entries = read_event_log_entries(&self.log_path);
         entries.extend(read_bridge_log_entries(bridge_log_path));

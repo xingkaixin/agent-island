@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
-import { motion, useReducedMotion } from "framer-motion";
-import { RefreshCw } from "lucide-react";
+import { ChevronDown, ChevronRight, RefreshCw, Trash2 } from "lucide-react";
+import { clearLogs } from "../lib/tauri";
 import type { AgentSource, TimelineLogEntry } from "../types/agent";
 import AgentAvatar, { agentSourceLabel } from "./AgentAvatar";
 
@@ -24,23 +24,47 @@ function entryStageLabel(entry: TimelineLogEntry) {
   return "hook";
 }
 
+function toLocalDatetimeValue(d: Date) {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
 interface LogCenterProps {
   entries: TimelineLogEntry[];
   loading: boolean;
   onBack: () => void;
   onRefresh: () => void;
+  onLogsCleared?: () => void;
 }
 
-export default function LogCenter({ entries, loading, onBack, onRefresh }: LogCenterProps) {
-  const reduceMotion = useReducedMotion();
+export default function LogCenter({
+  entries,
+  loading,
+  onBack,
+  onRefresh,
+  onLogsCleared,
+}: LogCenterProps) {
   const [selectedSources, setSelectedSources] = useState<AgentSource[]>([]);
   const [selectedKinds, setSelectedKinds] = useState<string[]>([]);
   const [viewMode, setViewMode] = useState<"all" | "event" | "bridge">("all");
+  const [startLocal, setStartLocal] = useState("");
+  const [endLocal, setEndLocal] = useState("");
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [clearing, setClearing] = useState(false);
 
   const kinds = useMemo(
-    () => Array.from(new Set(entries.map((entry) => entry.kind))).sort((left, right) => left.localeCompare(right)),
+    () =>
+      Array.from(new Set(entries.map((entry) => entry.kind))).sort((left, right) =>
+        left.localeCompare(right),
+      ),
     [entries],
   );
+
+  const rangeBounds = useMemo(() => {
+    const startMs = startLocal ? new Date(startLocal).getTime() : null;
+    const endMs = endLocal ? new Date(endLocal).getTime() : null;
+    return { startMs, endMs };
+  }, [startLocal, endLocal]);
 
   const filteredEntries = useMemo(
     () =>
@@ -54,9 +78,16 @@ export default function LogCenter({ entries, loading, onBack, onRefresh }: LogCe
         if (selectedKinds.length > 0 && !selectedKinds.includes(entry.kind)) {
           return false;
         }
+        const t = new Date(entry.createdAt).getTime();
+        if (rangeBounds.startMs !== null && !Number.isNaN(rangeBounds.startMs) && t < rangeBounds.startMs) {
+          return false;
+        }
+        if (rangeBounds.endMs !== null && !Number.isNaN(rangeBounds.endMs) && t > rangeBounds.endMs) {
+          return false;
+        }
         return true;
       }),
-    [entries, selectedKinds, selectedSources, viewMode],
+    [entries, rangeBounds, selectedKinds, selectedSources, viewMode],
   );
 
   function toggleSource(source: AgentSource) {
@@ -71,141 +102,234 @@ export default function LogCenter({ entries, loading, onBack, onRefresh }: LogCe
     );
   }
 
+  function setLast24h() {
+    const end = new Date();
+    const start = new Date(end.getTime() - 24 * 60 * 60 * 1000);
+    setStartLocal(toLocalDatetimeValue(start));
+    setEndLocal(toLocalDatetimeValue(end));
+  }
+
+  function clearRange() {
+    setStartLocal("");
+    setEndLocal("");
+  }
+
+  async function handleClearLogs() {
+    const ok1 = window.confirm("确定清空全部日志吗？包含 Hook 事件与 bridge 诊断，且不可撤销。");
+    if (!ok1) {
+      return;
+    }
+    const ok2 = window.confirm("再次确认：将删除磁盘上的事件记录。");
+    if (!ok2) {
+      return;
+    }
+    setClearing(true);
+    try {
+      await clearLogs();
+      onLogsCleared?.();
+      onRefresh();
+      setExpandedId(null);
+    } catch (e) {
+      window.alert(e instanceof Error ? e.message : "清空失败");
+    } finally {
+      setClearing(false);
+    }
+  }
+
   return (
-    <section className="settings-card rounded-[28px] p-6">
-      <div className="section-header">
+    <section className="settings-card log-center-shell rounded-[22px] p-5">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <div className="eyebrow">Log Center</div>
-          <div className="mt-2 text-xl font-semibold tracking-[-0.02em]">日志详情</div>
+          <h2 className="mt-1 text-lg font-semibold tracking-[-0.02em]">日志</h2>
+          <p className="mt-1 max-w-[56ch] text-xs leading-5 text-[var(--text-secondary)]">
+            Hook 与 bridge 合并时间线。点行展开原始内容；可按时间段缩小范围。
+          </p>
         </div>
-        <div className="flex items-center gap-2">
-          <button className="secondary-button rounded-full px-4 py-2 text-sm font-semibold" onClick={onBack} type="button">
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            className="secondary-button rounded-lg px-3 py-1.5 text-xs font-semibold"
+            onClick={onBack}
+            type="button"
+          >
             返回设置
           </button>
           <button
-            className="icon-button no-drag rounded-full p-2.5"
+            className="ghost-button hook-ghost-btn rounded-lg px-3 py-1.5 text-xs font-semibold disabled:opacity-50"
+            disabled={clearing || loading}
+            onClick={() => void handleClearLogs()}
+            type="button"
+          >
+            <Trash2 className="mr-1 inline-block h-3.5 w-3.5 align-[-2px]" aria-hidden />
+            清空日志
+          </button>
+          <button
+            className="icon-button no-drag rounded-lg p-2"
             disabled={loading}
             onClick={onRefresh}
             type="button"
           >
-            <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+            <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} aria-hidden />
+            <span className="sr-only">刷新</span>
           </button>
         </div>
       </div>
 
-      <div className="mt-3 text-sm leading-6 text-[var(--text-secondary)]">
-        这里按时间倒序查看 AgentIsland 已消费的 hook 事件，同时保留 bridge 诊断阶段日志，方便定位“没收到事件”和“收到了但解释错了”这两类不同问题。
-      </div>
-
-      <div className="mt-5 grid gap-4 rounded-[24px] border border-[var(--line)] bg-white/80 p-5">
-        <div>
-          <div className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-tertiary)]">
-            视图
-          </div>
-          <div className="mt-2 flex flex-wrap gap-2">
-            {[
+      <div className="log-toolbar mt-4 flex flex-col gap-3 rounded-xl border border-[var(--line)] bg-white p-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-[var(--text-tertiary)]">视图</span>
+          {(
+            [
               ["all", "全部"],
-              ["event", "仅 Hook 事件"],
-              ["bridge", "仅 Bridge 诊断"],
-            ].map(([value, label]) => (
-              <button
-                key={value}
-                className="filter-chip rounded-full px-3 py-1.5 text-xs font-semibold"
-                data-active={viewMode === value}
-                onClick={() => setViewMode(value as "all" | "event" | "bridge")}
-                type="button"
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div>
-          <div className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-tertiary)]">
-            Agent
-          </div>
-          <div className="mt-2 flex flex-wrap gap-2">
+              ["event", "Hook"],
+              ["bridge", "Bridge"],
+            ] as const
+          ).map(([value, label]) => (
+            <button
+              key={value}
+              className="filter-chip rounded-md px-2.5 py-1 text-[11px] font-semibold"
+              data-active={viewMode === value}
+              onClick={() => setViewMode(value)}
+              type="button"
+            >
+              {label}
+            </button>
+          ))}
+          <span className="mx-1 hidden h-4 w-px bg-[var(--line)] sm:inline-block" aria-hidden />
+          <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-[var(--text-tertiary)]">Agent</span>
+          <div className="flex flex-wrap gap-1">
             {agents.map((source) => (
               <button
                 key={source}
-                className="agent-filter-chip rounded-full px-3 py-2"
+                className="agent-filter-chip rounded-md px-2 py-1"
                 data-active={selectedSources.includes(source)}
                 onClick={() => toggleSource(source)}
                 type="button"
               >
                 <AgentAvatar size="sm" source={source} />
-                <span className="text-sm font-semibold">{agentSourceLabel(source)}</span>
+                <span className="text-[11px] font-semibold">{agentSourceLabel(source)}</span>
               </button>
             ))}
           </div>
         </div>
 
-        <div>
-          <div className="flex items-center justify-between gap-3">
-            <div className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-tertiary)]">
-              Hook 事件
-            </div>
-            <div className="text-xs text-[var(--text-secondary)]">{filteredEntries.length} 条</div>
-          </div>
-          <div className="mt-2 flex flex-wrap gap-2">
-            {kinds.map((kind) => (
+        <div className="flex flex-col gap-2 lg:flex-row lg:items-end lg:gap-3">
+          <div className="flex min-w-0 flex-1 flex-col gap-1">
+            <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-[var(--text-tertiary)]">
+              时间范围
+            </span>
+            <div className="flex flex-wrap items-center gap-2">
+              <input
+                aria-label="开始时间"
+                className="log-datetime-input rounded-md border border-[var(--line)] bg-white px-2 py-1 text-[11px]"
+                onChange={(e) => setStartLocal(e.target.value)}
+                type="datetime-local"
+                value={startLocal}
+              />
+              <span className="text-[var(--text-tertiary)]">—</span>
+              <input
+                aria-label="结束时间"
+                className="log-datetime-input rounded-md border border-[var(--line)] bg-white px-2 py-1 text-[11px]"
+                onChange={(e) => setEndLocal(e.target.value)}
+                type="datetime-local"
+                value={endLocal}
+              />
               <button
-                key={kind}
-                className="filter-chip rounded-full px-3 py-1.5 text-xs font-semibold"
-                data-active={selectedKinds.includes(kind)}
-                onClick={() => toggleKind(kind)}
+                className="rounded-md border border-[var(--line)] bg-[var(--bg-muted)] px-2 py-1 text-[11px] font-semibold text-[var(--text-secondary)]"
+                onClick={setLast24h}
                 type="button"
               >
-                {kind}
+                近 24h
               </button>
-            ))}
+              <button
+                className="rounded-md border border-transparent px-2 py-1 text-[11px] font-semibold text-[var(--accent-strong)]"
+                onClick={clearRange}
+                type="button"
+              >
+                清除范围
+              </button>
+            </div>
+          </div>
+          <div className="text-[11px] text-[var(--text-secondary)] lg:pb-1">
+            匹配 <span className="font-semibold tabular-nums text-[var(--text-primary)]">{filteredEntries.length}</span>{" "}
+            条
           </div>
         </div>
+
+        {kinds.length > 0 ? (
+          <div>
+            <div className="text-[10px] font-bold uppercase tracking-[0.12em] text-[var(--text-tertiary)]">事件 kind</div>
+            <div className="mt-1.5 flex max-h-20 flex-wrap gap-0.5 overflow-y-auto">
+              {kinds.map((kind) => (
+                <button
+                  key={kind}
+                  className="log-kind-chip filter-chip min-w-0 max-w-[6.5rem] truncate rounded px-1.5 py-0 text-[9px] font-semibold leading-none"
+                  data-active={selectedKinds.includes(kind)}
+                  onClick={() => toggleKind(kind)}
+                  title={kind}
+                  type="button"
+                >
+                  {kind}
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : null}
       </div>
 
-      <div className="mt-5 space-y-3">
+      <div className="mt-3 flex flex-col gap-1">
         {filteredEntries.length > 0 ? (
-          filteredEntries.map((entry, index) => (
-            <motion.div
-              key={entry.id}
-              initial={reduceMotion ? false : { opacity: 0, y: 10 }}
-              animate={reduceMotion ? {} : { opacity: 1, y: 0 }}
-              transition={{ duration: 0.22, delay: 0.02 * index, ease: [0.22, 1, 0.36, 1] }}
-              className="timeline-card rounded-[24px] p-4"
-            >
-              <div className="flex items-start justify-between gap-4">
-                <div className="flex min-w-0 items-start gap-3">
-                  <AgentAvatar size="sm" source={entry.source} />
-                  <div className="min-w-0">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <div className="text-sm font-semibold">{entry.kind}</div>
-                      <span className="rounded-full bg-[var(--bg-muted)] px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--text-tertiary)]">
+          filteredEntries.map((entry) => {
+            const open = expandedId === entry.id;
+            return (
+              <div
+                key={entry.id}
+                className="log-row-compact rounded-lg border border-[var(--line)] bg-white"
+              >
+                <button
+                  className="flex w-full items-center gap-2 px-2 py-2 text-left"
+                  onClick={() => setExpandedId(open ? null : entry.id)}
+                  type="button"
+                >
+                  {open ? (
+                    <ChevronDown className="h-4 w-4 shrink-0 text-[var(--text-tertiary)]" aria-hidden />
+                  ) : (
+                    <ChevronRight className="h-4 w-4 shrink-0 text-[var(--text-tertiary)]" aria-hidden />
+                  )}
+                  <AgentAvatar
+                    size="sm"
+                    source={
+                      agents.includes(entry.source as AgentSource)
+                        ? (entry.source as AgentSource)
+                        : "codex"
+                    }
+                  />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <span className="truncate text-[13px] font-semibold">{entry.kind}</span>
+                      <span className="shrink-0 rounded bg-[var(--bg-muted)] px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-[0.1em] text-[var(--text-tertiary)]">
                         {entryStageLabel(entry)}
                       </span>
                     </div>
                     {entry.sessionId ? (
-                      <div className="mt-1 text-xs text-[var(--text-secondary)]">
-                        {entry.sessionId}
-                      </div>
+                      <div className="truncate text-[10px] text-[var(--text-secondary)]">{entry.sessionId}</div>
                     ) : null}
                   </div>
-                </div>
-                <div className="shrink-0 text-right text-xs text-[var(--text-tertiary)]">
-                  {formatTime(entry.createdAt)}
-                </div>
+                  <time className="shrink-0 text-[10px] text-[var(--text-tertiary)]" dateTime={entry.createdAt}>
+                    {formatTime(entry.createdAt)}
+                  </time>
+                </button>
+                {open ? (
+                  <pre className="log-pre mx-2 mb-2 max-h-48 overflow-auto whitespace-pre-wrap break-all rounded-md p-2 text-[10px] leading-relaxed">
+                    {entry.raw}
+                  </pre>
+                ) : null}
               </div>
-              <pre className="log-pre mt-3 whitespace-pre-wrap break-all rounded-[18px] p-3 text-xs">
-                {entry.raw}
-              </pre>
-            </motion.div>
-          ))
+            );
+          })
         ) : (
-          <div className="panel-card-soft rounded-[24px] px-4 py-10 text-center">
-            <div className="text-sm font-medium">没有匹配的日志</div>
-            <div className="mt-1 text-sm text-[var(--text-secondary)]">
-              调整筛选条件或刷新时间线后再看。
-            </div>
+          <div className="rounded-lg border border-dashed border-[var(--line)] px-4 py-8 text-center text-sm text-[var(--text-secondary)]">
+            没有匹配的日志
           </div>
         )}
       </div>

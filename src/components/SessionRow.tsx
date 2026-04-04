@@ -67,7 +67,7 @@ export default function SessionRow({ session }: { session: SessionView }) {
   const tone = statusTone(session);
 
   return (
-    <div className="session-row flex items-center gap-3 rounded-[22px] px-3.5 py-3">
+    <div className="session-row session-row-accent flex items-center gap-3 rounded-xl px-3 py-2.5" data-tone={tone}>
       <AgentAvatar
         highlighted={session.hasPendingPermission || session.needsUserAttention}
         source={session.source}

@@ -15,7 +15,7 @@ pub struct UserPreferences {
 impl Default for UserPreferences {
     fn default() -> Self {
         Self {
-            notifications_enabled: true,
+            notifications_enabled: false,
             launch_at_login: false,
             log_limit: 100,
         }

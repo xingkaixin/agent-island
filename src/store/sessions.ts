@@ -9,7 +9,7 @@ import type {
 } from "../types/agent";
 
 const defaultPreferences: UserPreferences = {
-  notificationsEnabled: true,
+  notificationsEnabled: false,
   launchAtLogin: false,
   logLimit: 100,
 };

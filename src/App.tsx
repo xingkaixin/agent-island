@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { motion, useReducedMotion } from "framer-motion";
-import { CircleDot, Settings2 } from "lucide-react";
+import { CircleDot, LogOut, Settings2 } from "lucide-react";
 import SessionRow from "./components/SessionRow";
 import Settings from "./components/Settings";
 import AgentAvatar from "./components/AgentAvatar";
@@ -10,6 +10,7 @@ import {
   getCurrentWindowLabel,
   onAppStateUpdated,
   openSettingsWindow,
+  quitApp,
 } from "./lib/tauri";
 import { useSessionStore } from "./store/sessions";
 import type { SessionView } from "./types/agent";
@@ -129,77 +130,83 @@ export default function App() {
       <motion.div
         {...enterMotion}
         transition={{ duration: 0.34, ease: [0.22, 1, 0.36, 1] }}
-        className={`menu-panel mx-auto flex h-[520px] w-full max-w-[420px] flex-col overflow-hidden rounded-[30px] border border-white/60 bg-[var(--bg-shell)]/96 ${
+        className={`menu-panel mx-auto flex h-[520px] w-full max-w-[420px] flex-col overflow-hidden rounded-[22px] border border-[var(--line-strong)] bg-[var(--bg-shell-strong)] ${
           hasAttention || permissionRequest ? "attention-ring" : ""
         }`}
       >
-        <div className="relative border-b border-[var(--line)]/80 px-4 pb-4 pt-4">
-          <div className="flex items-start justify-between gap-4">
-            <div className="min-w-0 flex-1">
-              <div className="eyebrow">Menu Overview</div>
-              <div className="mt-2 flex items-center gap-3">
-                <span className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-2xl border border-white/70 bg-white/80 shadow-[0_12px_28px_rgba(79,54,25,0.1)]">
-                  <img alt="AgentIsland" className="h-6 w-6 object-contain" src="/app-icon.png" />
-                </span>
-                <div className="min-w-0">
-                  <div className="text-[1.1rem] font-semibold tracking-[-0.02em]">AgentIsland</div>
-                  <div className="mt-0.5 text-sm text-[var(--text-secondary)]">{attentionText}</div>
-                </div>
+        <div className="relative border-b border-[var(--line)] px-3 pb-3 pt-3">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex min-w-0 flex-1 items-start gap-2.5">
+              <span className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-[var(--line)] bg-white">
+                <img alt="AgentIsland" className="h-6 w-6 object-contain" src="/app-icon.png" />
+              </span>
+              <div className="min-w-0">
+                <div className="text-[0.95rem] font-semibold tracking-[-0.02em]">AgentIsland</div>
+                <div className="mt-0.5 text-[13px] leading-snug text-[var(--text-secondary)]">{attentionText}</div>
               </div>
             </div>
-            <button
-              className="icon-button no-drag rounded-full p-2.5"
-              onClick={() => {
-                const currentWindow = getCurrentWindow();
-                void currentWindow.hide();
-                void openSettingsWindow();
-              }}
-              type="button"
-            >
-              <Settings2 className="h-4 w-4" />
-            </button>
+            <div className="flex shrink-0 items-center gap-1">
+              <button
+                className="icon-button no-drag rounded-lg p-2"
+                onClick={() => {
+                  const currentWindow = getCurrentWindow();
+                  void currentWindow.hide();
+                  void openSettingsWindow();
+                }}
+                type="button"
+              >
+                <Settings2 className="h-4 w-4" aria-hidden />
+                <span className="sr-only">打开设置</span>
+              </button>
+              <button
+                className="icon-button no-drag rounded-lg p-2"
+                onClick={() => void quitApp()}
+                type="button"
+              >
+                <LogOut className="h-4 w-4" aria-hidden />
+                <span className="sr-only">退出 AgentIsland</span>
+              </button>
+            </div>
           </div>
 
-          <div className="mt-4">
-            <div className="grid min-w-0 grid-cols-3 gap-2">
-              <div
-                className="metric-chip rounded-2xl px-3 py-2 text-center"
-                data-tone={metricTone(sessionSummary.running, "active")}
-              >
-                <div className="text-base font-semibold leading-none">{sessionSummary.running}</div>
-                <div className="mt-1 text-[11px] text-[var(--text-secondary)]">运行中</div>
-              </div>
-              <div
-                className="metric-chip rounded-2xl px-3 py-2 text-center"
-                data-tone={metricTone(sessionSummary.idle, "idle")}
-              >
-                <div className="text-base font-semibold leading-none">{sessionSummary.idle}</div>
-                <div className="mt-1 text-[11px] text-[var(--text-secondary)]">空闲</div>
-              </div>
-              <div
-                className="metric-chip rounded-2xl px-3 py-2 text-center"
-                data-tone={metricTone(sessionSummary.attention, "attention")}
-              >
-                <div className="text-base font-semibold leading-none">{sessionSummary.attention}</div>
-                <div className="mt-1 text-[11px] text-[var(--text-secondary)]">待处理</div>
-              </div>
-            </div>
+          <div className="mt-3 flex flex-wrap gap-1.5">
+            <span
+              className="status-pill-inline"
+              data-tone={metricTone(sessionSummary.running, "active")}
+            >
+              <span className="font-semibold tabular-nums">{sessionSummary.running}</span>
+              <span>运行</span>
+            </span>
+            <span
+              className="status-pill-inline"
+              data-tone={metricTone(sessionSummary.idle, "idle")}
+            >
+              <span className="font-semibold tabular-nums">{sessionSummary.idle}</span>
+              <span>空闲</span>
+            </span>
+            <span
+              className="status-pill-inline"
+              data-tone={metricTone(sessionSummary.attention, "attention")}
+            >
+              <span className="font-semibold tabular-nums">{sessionSummary.attention}</span>
+              <span>待处理</span>
+            </span>
           </div>
         </div>
 
-        <div className="flex-1 space-y-3 overflow-y-auto px-3 py-3">
+        <div className="flex flex-1 flex-col gap-2 overflow-y-auto px-2.5 py-2.5">
           {hasAttention || permissionRequest ? (
             <motion.section
               initial={reduceMotion ? false : { opacity: 0, y: 10 }}
               animate={reduceMotion ? {} : { opacity: 1, y: 0 }}
               transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
-              className="hero-card rounded-[26px] px-4 py-4"
+              className="attention-banner rounded-xl border border-[rgba(217,128,47,0.22)] bg-[rgba(255,248,235,0.95)] px-3 py-3"
             >
-              <div className="section-header">
-                <div>
-                  <div className="eyebrow">Needs Attention</div>
-                  <div className="mt-2 text-base font-semibold tracking-[-0.02em]">
-                    {attentionSession?.statusDetail ?? "需要你返回终端"}
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <div className="text-xs font-semibold text-[#9a3412]">需要处理</div>
+                  <div className="mt-1 text-sm font-semibold leading-snug tracking-[-0.01em]">
+                    {attentionSession?.statusDetail ?? "请回到终端继续"}
                   </div>
                 </div>
                 {attentionSession ? (
@@ -211,53 +218,47 @@ export default function App() {
                   />
                 ) : null}
               </div>
-              <div className="mt-3 text-sm leading-6 text-[var(--text-secondary)]">
-                AgentIsland 负责把关键状态提到桌面层。实际审批和处理仍在终端完成。
-              </div>
+              <p className="mt-2 text-xs leading-5 text-[var(--text-secondary)]">
+                审批与输入仍在终端完成；此处仅提示状态。
+              </p>
             </motion.section>
           ) : null}
 
-          <section className="panel-card rounded-[26px] p-3.5">
-            <div className="section-header">
-              <div>
-                <div className="eyebrow">Sessions</div>
-                <div className="mt-2 text-base font-semibold tracking-[-0.02em]">当前活跃 Agent</div>
-              </div>
-              <div className="rounded-full border border-[var(--line)]/80 bg-white/70 px-3 py-1 text-xs text-[var(--text-secondary)]">
-                {hydrated ? `${sessions.length} 个会话` : "同步中"}
-              </div>
+          <section className="panel-card rounded-xl p-3">
+            <div className="flex items-center justify-between gap-2">
+              <h2 className="text-sm font-semibold tracking-[-0.02em]">会话</h2>
+              <span className="text-[11px] text-[var(--text-tertiary)]">
+                {hydrated ? `${sessions.length} 个` : "同步中…"}
+              </span>
             </div>
-            <div className="subtle-divider my-3" />
 
             {sessions.length > 0 ? (
-              <div className="space-y-2.5">
+              <div className="mt-2 flex flex-col gap-2">
                 {sessions.map((session, index) => (
                   <motion.div
                     key={session.id}
-                    initial={reduceMotion ? false : { opacity: 0, y: 10 }}
+                    initial={reduceMotion ? false : { opacity: 0, y: 8 }}
                     animate={reduceMotion ? {} : { opacity: 1, y: 0 }}
-                    transition={{ duration: 0.24, delay: 0.04 * index, ease: [0.22, 1, 0.36, 1] }}
+                    transition={{ duration: 0.22, delay: 0.03 * index, ease: [0.22, 1, 0.36, 1] }}
                   >
                     <SessionRow session={session} />
                   </motion.div>
                 ))}
               </div>
             ) : (
-              <div className="panel-card-soft rounded-[22px] px-4 py-9 text-center">
-                <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-full border border-[var(--line)] bg-white/70 text-[var(--text-secondary)]">
-                  <CircleDot className="h-5 w-5" />
-                </div>
-                <div className="mt-3 text-sm font-medium">暂无活跃 agent</div>
-                <div className="mt-1 text-sm leading-6 text-[var(--text-secondary)]">
-                  菜单栏会回到静止状态，新的终端事件出现时会自动恢复提示。
+              <div className="mt-3 rounded-lg border border-dashed border-[var(--line)] px-3 py-6 text-center">
+                <CircleDot className="mx-auto h-5 w-5 text-[var(--text-tertiary)]" aria-hidden />
+                <div className="mt-2 text-sm font-medium">暂无活跃会话</div>
+                <div className="mt-1 text-xs leading-5 text-[var(--text-secondary)]">
+                  有新事件时菜单栏图标会更新。
                 </div>
               </div>
             )}
           </section>
 
           {!hydrated ? (
-            <div className="rounded-full border border-[var(--line)]/80 bg-white/55 px-3 py-2 text-center text-xs text-[var(--text-secondary)]">
-              正在同步状态...
+            <div className="rounded-lg border border-[var(--line)] bg-[var(--bg-muted)] px-2 py-1.5 text-center text-[11px] text-[var(--text-secondary)]">
+              正在同步…
             </div>
           ) : null}
         </div>

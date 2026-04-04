@@ -108,34 +108,30 @@ fn derive_menu_bar_summary(snapshot: &AppStateSnapshot) -> MenuBarSummary {
     )
 }
 
-fn tray_title_for(summary: MenuBarSummary, phase: usize) -> Option<String> {
+/// Menu bar title: compact `运行·空闲·待处理` counts (tooltip carries labels).
+fn tray_title_for(summary: MenuBarSummary) -> Option<String> {
     if summary == MenuBarSummary::default() {
         return Some(String::new());
     }
 
-    let running_frames = ["🏇", "🏃"];
-    let attention_frames = ["❓", "✋"];
-    let mut parts = Vec::new();
+    Some(format!(
+        "{}·{}·{}",
+        summary.running_count, summary.idle_count, summary.attention_count
+    ))
+}
 
-    if summary.running_count > 0 {
-        parts.push(format!(
-            "{}{}",
-            running_frames[phase % running_frames.len()],
-            summary.running_count
-        ));
+fn tray_icon_for(state: MenuBarState, phase: usize) -> tauri::image::Image<'static> {
+    match state {
+        MenuBarState::Attention => include_image!("icons/menu-bar-attention.png"),
+        MenuBarState::Idle => include_image!("icons/menu-bar-idle.png"),
+        MenuBarState::Running => {
+            if phase % 2 == 0 {
+                include_image!("icons/menu-bar-running-1.png")
+            } else {
+                include_image!("icons/menu-bar-running-2.png")
+            }
+        }
     }
-    if summary.idle_count > 0 {
-        parts.push(format!("💤{}", summary.idle_count));
-    }
-    if summary.attention_count > 0 {
-        parts.push(format!(
-            "{}{}",
-            attention_frames[phase % attention_frames.len()],
-            summary.attention_count
-        ));
-    }
-
-    Some(parts.join(" "))
 }
 
 fn tray_tooltip_for(summary: MenuBarSummary) -> String {
@@ -148,13 +144,16 @@ fn tray_tooltip_for(summary: MenuBarSummary) -> String {
         parts.push(format!("运行中 {}", summary.running_count));
     }
     if summary.idle_count > 0 {
-        parts.push(format!("睡觉 {}", summary.idle_count));
+        parts.push(format!("空闲 {}", summary.idle_count));
     }
     if summary.attention_count > 0 {
         parts.push(format!("待处理 {}", summary.attention_count));
     }
 
-    format!("AgentIsland: {}", parts.join("，"))
+    format!(
+        "AgentIsland — {}（标题数字顺序：运行·空闲·待处理）",
+        parts.join("，")
+    )
 }
 
 fn sync_tray_state(
@@ -166,12 +165,9 @@ fn sync_tray_state(
     let state = derive_menu_bar_state(&snapshot);
     let summary = derive_menu_bar_summary(&snapshot);
     if let Some(tray) = app.tray_by_id(TRAY_ID) {
-        tray.set_tooltip(Some(match state {
-            MenuBarState::Idle => tray_tooltip_for(summary),
-            MenuBarState::Running => tray_tooltip_for(summary),
-            MenuBarState::Attention => tray_tooltip_for(summary),
-        }))?;
-        tray.set_title(tray_title_for(summary, phase))?;
+        tray.set_icon(Some(tray_icon_for(state, phase)))?;
+        tray.set_tooltip(Some(tray_tooltip_for(summary)))?;
+        tray.set_title(tray_title_for(summary))?;
     }
     Ok(())
 }
@@ -231,16 +227,13 @@ mod tests {
 
     #[test]
     fn tray_title_includes_running_idle_and_attention_counts() {
-        let title = tray_title_for(
-            MenuBarSummary {
-                running_count: 2,
-                idle_count: 1,
-                attention_count: 3,
-            },
-            0,
-        );
+        let title = tray_title_for(MenuBarSummary {
+            running_count: 2,
+            idle_count: 1,
+            attention_count: 3,
+        });
 
-        assert_eq!(title.as_deref(), Some("🏇2 💤1 ❓3"));
+        assert_eq!(title.as_deref(), Some("2·1·3"));
     }
 }
 
@@ -328,6 +321,29 @@ fn get_log_timeline(
         .lock()
         .unwrap()
         .log_timeline(limit.unwrap_or(1000), &state.bridge_log_path)
+}
+
+#[tauri::command]
+fn quit_app(app: tauri::AppHandle) {
+    app.exit(0);
+}
+
+#[tauri::command]
+fn clear_logs(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, Arc<AppServices>>,
+) -> Result<(), String> {
+    let bridge = state.bridge_log_path.clone();
+    {
+        let mut sessions = state.sessions.lock().unwrap();
+        sessions.clear_logs().map_err(|error| error.to_string())?;
+    }
+    if let Some(parent) = bridge.parent() {
+        let _ = std::fs::create_dir_all(parent);
+    }
+    std::fs::File::create(&bridge).map_err(|error| error.to_string())?;
+    emit_state(&app, &state).map_err(|error| error.to_string())?;
+    Ok(())
 }
 
 fn ensure_popover_window<R: Runtime>(window: &WebviewWindow<R>) {
@@ -515,7 +531,9 @@ pub fn run() {
             restore_agent_backup,
             set_user_preferences,
             get_recent_logs,
-            get_log_timeline
+            get_log_timeline,
+            quit_app,
+            clear_logs
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

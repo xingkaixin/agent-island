@@ -57,3 +57,11 @@ export async function getRecentLogs(limit: number) {
 export async function getLogTimeline(limit?: number) {
   return invoke<TimelineLogEntry[]>("get_log_timeline", { limit });
 }
+
+export async function quitApp() {
+  return invoke("quit_app");
+}
+
+export async function clearLogs() {
+  return invoke("clear_logs");
+}
