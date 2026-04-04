@@ -88,7 +88,6 @@ export default function SessionRow({ session }: { session: SessionView }) {
           </span>
         </div>
         <div className="session-path mt-2 truncate">{formatWorkspaceLabel(session.cwd)}</div>
-        <div className="mt-1 truncate text-xs text-[var(--text-secondary)]">{session.statusDetail}</div>
       </div>
       <div className="shrink-0 text-right">
         <div className="text-[10px] uppercase tracking-[0.14em] text-[var(--text-tertiary)]">Elapsed</div>

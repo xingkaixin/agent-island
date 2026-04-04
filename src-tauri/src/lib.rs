@@ -270,7 +270,7 @@ fn open_settings_window(app: tauri::AppHandle) -> Result<(), String> {
         WebviewUrl::App("index.html?view=settings".into()),
     )
     .title("AgentIsland Settings")
-    .inner_size(960.0, 720.0)
+    .inner_size(1200.0, 760.0)
     .resizable(true)
     .decorations(true)
     .build()

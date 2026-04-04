@@ -3,43 +3,43 @@
 :root {
   color-scheme: light;
   font-family:
-    "SF Pro Display",
+    "SF Pro Text",
     "PingFang SC",
     "Hiragino Sans GB",
     sans-serif;
-  --bg-canvas: #f4ede4;
-  --bg-shell: rgba(255, 251, 245, 0.9);
-  --bg-shell-strong: rgba(255, 250, 243, 0.96);
-  --bg-glass: rgba(255, 255, 255, 0.72);
-  --bg-muted: rgba(126, 96, 62, 0.06);
-  --bg-strong: rgba(38, 30, 22, 0.94);
-  --text-primary: #211a13;
-  --text-secondary: #6d6050;
-  --text-tertiary: #978978;
-  --accent: #d9802f;
-  --accent-strong: #b8671f;
-  --accent-soft: rgba(217, 128, 47, 0.12);
-  --danger: #d55a4d;
-  --danger-soft: rgba(213, 90, 77, 0.12);
-  --success: #4d8b60;
-  --line: rgba(94, 73, 48, 0.12);
-  --line-strong: rgba(94, 73, 48, 0.2);
+  --bg-canvas: #f0f2f7;
+  --bg-shell: rgba(242, 245, 251, 0.92);
+  --bg-shell-strong: rgba(238, 242, 250, 0.97);
+  --bg-glass: rgba(255, 255, 255, 0.76);
+  --bg-muted: rgba(99, 115, 160, 0.07);
+  --bg-strong: rgba(18, 22, 38, 0.94);
+  --text-primary: #141924;
+  --text-secondary: #505a78;
+  --text-tertiary: #8892aa;
+  --accent: #3b7eff;
+  --accent-strong: #1a5fe0;
+  --accent-soft: rgba(59, 126, 255, 0.10);
+  --danger: #e0424f;
+  --danger-soft: rgba(224, 66, 79, 0.10);
+  --success: #22a663;
+  --line: rgba(80, 100, 160, 0.11);
+  --line-strong: rgba(80, 100, 160, 0.20);
   --shadow-lg:
-    0 32px 80px rgba(80, 55, 25, 0.16),
-    0 10px 28px rgba(80, 55, 25, 0.08),
-    inset 0 1px 0 rgba(255, 255, 255, 0.68);
+    0 32px 80px rgba(30, 50, 110, 0.14),
+    0 10px 28px rgba(30, 50, 110, 0.07),
+    inset 0 1px 0 rgba(255, 255, 255, 0.72);
   --shadow-md:
-    0 16px 40px rgba(82, 58, 28, 0.1),
-    0 6px 18px rgba(82, 58, 28, 0.04),
-    inset 0 1px 0 rgba(255, 255, 255, 0.6);
+    0 16px 40px rgba(30, 50, 110, 0.09),
+    0 6px 18px rgba(30, 50, 110, 0.04),
+    inset 0 1px 0 rgba(255, 255, 255, 0.64);
   --shadow-sm:
-    0 10px 22px rgba(82, 58, 28, 0.06),
+    0 10px 22px rgba(30, 50, 110, 0.06),
     inset 0 1px 0 rgba(255, 255, 255, 0.5);
   --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
   background:
-    radial-gradient(circle at 16% 18%, rgba(255, 196, 137, 0.34), transparent 24%),
-    radial-gradient(circle at 84% 10%, rgba(255, 236, 210, 0.88), transparent 28%),
-    linear-gradient(180deg, rgba(255, 251, 246, 0.96), rgba(244, 237, 228, 0.92));
+    radial-gradient(circle at 14% 16%, rgba(180, 200, 255, 0.28), transparent 26%),
+    radial-gradient(circle at 85% 8%, rgba(210, 225, 255, 0.72), transparent 30%),
+    linear-gradient(180deg, rgba(245, 248, 255, 0.97), rgba(236, 241, 252, 0.94));
   color: var(--text-primary);
 }
 
@@ -98,32 +98,32 @@ input {
   inset: 0;
   pointer-events: none;
   background:
-    linear-gradient(135deg, rgba(255, 255, 255, 0.44), transparent 34%),
-    radial-gradient(circle at top right, rgba(255, 222, 183, 0.34), transparent 32%);
+    linear-gradient(135deg, rgba(255, 255, 255, 0.48), transparent 34%),
+    radial-gradient(circle at top right, rgba(180, 210, 255, 0.26), transparent 32%);
 }
 
 .panel-card {
   border: 1px solid var(--line);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.72), rgba(255, 251, 247, 0.86));
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.80), rgba(248, 251, 255, 0.90));
   box-shadow: var(--shadow-sm);
 }
 
 .panel-card-soft {
-  border: 1px solid rgba(94, 73, 48, 0.08);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.82), rgba(255, 247, 240, 0.92));
+  border: 1px solid rgba(80, 100, 160, 0.07);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.88), rgba(245, 249, 255, 0.94));
 }
 
 .hero-card {
-  border: 1px solid rgba(217, 128, 47, 0.18);
+  border: 1px solid rgba(59, 126, 255, 0.16);
   background:
-    linear-gradient(135deg, rgba(255, 244, 232, 0.92), rgba(255, 252, 248, 0.8)),
-    radial-gradient(circle at top right, rgba(217, 128, 47, 0.14), transparent 30%);
+    linear-gradient(135deg, rgba(235, 243, 255, 0.94), rgba(248, 252, 255, 0.82)),
+    radial-gradient(circle at top right, rgba(59, 126, 255, 0.10), transparent 30%);
   box-shadow: var(--shadow-md);
 }
 
 .metric-chip {
-  border: 1px solid rgba(94, 73, 48, 0.08);
-  background: rgba(255, 255, 255, 0.62);
+  border: 1px solid rgba(80, 100, 160, 0.08);
+  background: rgba(255, 255, 255, 0.66);
   transition:
     transform 180ms var(--ease-out),
     border-color 180ms var(--ease-out),
@@ -132,26 +132,26 @@ input {
 
 .metric-chip:hover {
   transform: translateY(-1px);
-  border-color: rgba(94, 73, 48, 0.14);
+  border-color: rgba(80, 100, 160, 0.14);
 }
 
 .metric-chip[data-tone="attention"] {
   border-color: rgba(217, 128, 47, 0.18);
-  background: rgba(255, 245, 233, 0.88);
+  background: rgba(255, 240, 210, 0.90);
 }
 
 .metric-chip[data-tone="active"] {
-  border-color: rgba(77, 139, 96, 0.16);
-  background: rgba(244, 250, 244, 0.88);
+  border-color: rgba(34, 166, 99, 0.14);
+  background: rgba(240, 252, 246, 0.90);
 }
 
 .metric-chip[data-tone="idle"] {
-  background: rgba(255, 255, 255, 0.72);
+  background: rgba(255, 255, 255, 0.76);
 }
 
 .icon-button {
-  border: 1px solid rgba(94, 73, 48, 0.08);
-  background: rgba(255, 255, 255, 0.58);
+  border: 1px solid rgba(80, 100, 160, 0.08);
+  background: rgba(255, 255, 255, 0.62);
   color: var(--text-secondary);
   transition:
     transform 180ms var(--ease-out),
@@ -163,8 +163,8 @@ input {
 
 .icon-button:hover {
   transform: translateY(-1px);
-  border-color: rgba(94, 73, 48, 0.16);
-  background: rgba(255, 255, 255, 0.78);
+  border-color: rgba(80, 100, 160, 0.16);
+  background: rgba(255, 255, 255, 0.82);
   color: var(--text-primary);
   box-shadow: var(--shadow-sm);
 }
@@ -174,7 +174,7 @@ input {
 .primary-button:focus-visible,
 .secondary-button:focus-visible,
 .setting-switch:focus-visible {
-  outline: 2px solid rgba(217, 128, 47, 0.4);
+  outline: 2px solid rgba(59, 126, 255, 0.40);
   outline-offset: 2px;
 }
 
@@ -194,10 +194,10 @@ input {
 }
 
 .session-row {
-  border: 1px solid rgba(94, 73, 48, 0.08);
+  border: 1px solid rgba(80, 100, 160, 0.08);
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.76), rgba(255, 250, 245, 0.86));
-  box-shadow: 0 8px 22px rgba(76, 53, 26, 0.05);
+    linear-gradient(180deg, rgba(255, 255, 255, 0.82), rgba(248, 251, 255, 0.90));
+  box-shadow: 0 8px 22px rgba(30, 50, 110, 0.05);
   transition:
     transform 180ms var(--ease-out),
     border-color 180ms var(--ease-out),
@@ -207,31 +207,31 @@ input {
 
 .session-row:hover {
   transform: translateY(-1px);
-  border-color: rgba(94, 73, 48, 0.14);
-  box-shadow: 0 12px 28px rgba(76, 53, 26, 0.08);
+  border-color: rgba(80, 100, 160, 0.15);
+  box-shadow: 0 12px 28px rgba(30, 50, 110, 0.09);
 }
 
 .session-status-badge {
-  border: 1px solid rgba(94, 73, 48, 0.08);
-  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid rgba(80, 100, 160, 0.08);
+  background: rgba(255, 255, 255, 0.76);
   color: var(--text-secondary);
 }
 
 .session-status-badge[data-tone="attention"] {
-  border-color: rgba(217, 128, 47, 0.18);
-  background: rgba(255, 245, 233, 0.92);
-  color: var(--accent-strong);
+  border-color: rgba(217, 128, 47, 0.20);
+  background: rgba(255, 240, 210, 0.94);
+  color: #b45309;
 }
 
 .session-status-badge[data-tone="error"] {
-  border-color: rgba(213, 90, 77, 0.18);
-  background: rgba(252, 243, 241, 0.92);
+  border-color: rgba(224, 66, 79, 0.18);
+  background: rgba(255, 242, 243, 0.94);
   color: var(--danger);
 }
 
 .session-status-badge[data-tone="active"] {
-  border-color: rgba(77, 139, 96, 0.18);
-  background: rgba(244, 250, 244, 0.92);
+  border-color: rgba(34, 166, 99, 0.16);
+  background: rgba(240, 252, 246, 0.94);
   color: var(--success);
 }
 
@@ -243,28 +243,28 @@ input {
 
 .subtle-divider {
   height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(94, 73, 48, 0.12), transparent);
+  background: linear-gradient(90deg, transparent, rgba(80, 100, 160, 0.14), transparent);
 }
 
 .settings-shell {
   position: relative;
   overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.52);
-  background: rgba(252, 246, 238, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  background: rgba(240, 244, 252, 0.82);
   box-shadow: var(--shadow-lg);
   backdrop-filter: blur(24px);
 }
 
 .settings-card {
   border: 1px solid var(--line);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.78), rgba(255, 250, 244, 0.9));
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.84), rgba(248, 251, 255, 0.93));
   box-shadow: var(--shadow-sm);
 }
 
 .settings-agent-card {
-  border: 1px solid rgba(94, 73, 48, 0.08);
+  border: 1px solid rgba(80, 100, 160, 0.08);
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.78), rgba(255, 248, 241, 0.9));
+    linear-gradient(180deg, rgba(255, 255, 255, 0.84), rgba(245, 249, 255, 0.93));
   transition:
     transform 180ms var(--ease-out),
     border-color 180ms var(--ease-out),
@@ -273,30 +273,30 @@ input {
 
 .settings-agent-card:hover {
   transform: translateY(-1px);
-  border-color: rgba(94, 73, 48, 0.16);
-  box-shadow: 0 12px 28px rgba(76, 53, 26, 0.08);
+  border-color: rgba(80, 100, 160, 0.16);
+  box-shadow: 0 12px 28px rgba(30, 50, 110, 0.09);
 }
 
 .status-pill {
-  border: 1px solid rgba(94, 73, 48, 0.08);
-  background: rgba(255, 255, 255, 0.76);
+  border: 1px solid rgba(80, 100, 160, 0.08);
+  background: rgba(255, 255, 255, 0.80);
   color: var(--text-secondary);
 }
 
 .status-pill[data-tone="success"] {
-  border-color: rgba(77, 139, 96, 0.18);
-  background: rgba(244, 250, 244, 0.92);
+  border-color: rgba(34, 166, 99, 0.16);
+  background: rgba(240, 252, 246, 0.94);
   color: var(--success);
 }
 
 .status-pill[data-tone="warning"] {
   border-color: rgba(217, 128, 47, 0.18);
-  background: rgba(255, 245, 233, 0.92);
-  color: var(--accent-strong);
+  background: rgba(255, 240, 210, 0.94);
+  color: #b45309;
 }
 
 .status-pill[data-tone="muted"] {
-  background: rgba(250, 247, 242, 0.92);
+  background: rgba(245, 247, 252, 0.94);
 }
 
 .primary-button,
@@ -318,20 +318,20 @@ input {
 }
 
 .primary-button {
-  background: linear-gradient(180deg, rgba(38, 30, 22, 0.96), rgba(28, 22, 17, 1));
-  color: #fffaf4;
-  box-shadow: 0 12px 24px rgba(38, 30, 22, 0.16);
+  background: linear-gradient(180deg, rgba(20, 25, 40, 0.96), rgba(14, 18, 32, 1));
+  color: #f4f8ff;
+  box-shadow: 0 12px 24px rgba(20, 25, 40, 0.18);
 }
 
 .secondary-button {
-  border: 1px solid rgba(94, 73, 48, 0.12);
-  background: rgba(255, 255, 255, 0.82);
+  border: 1px solid rgba(80, 100, 160, 0.12);
+  background: rgba(255, 255, 255, 0.86);
   color: var(--text-primary);
 }
 
 .ghost-button {
-  border: 1px solid rgba(213, 90, 77, 0.14);
-  background: rgba(252, 243, 241, 0.9);
+  border: 1px solid rgba(224, 66, 79, 0.14);
+  background: rgba(255, 242, 243, 0.90);
   color: var(--danger);
 }
 
@@ -344,7 +344,7 @@ input {
 }
 
 .setting-row {
-  border: 1px solid rgba(94, 73, 48, 0.08);
+  border: 1px solid rgba(80, 100, 160, 0.08);
   background: rgba(255, 255, 255, 0.62);
   transition:
     transform 180ms var(--ease-out),
@@ -354,8 +354,8 @@ input {
 
 .setting-row:hover {
   transform: translateY(-1px);
-  border-color: rgba(94, 73, 48, 0.16);
-  background: rgba(255, 255, 255, 0.78);
+  border-color: rgba(80, 100, 160, 0.16);
+  background: rgba(255, 255, 255, 0.82);
 }
 
 .setting-switch {
@@ -364,8 +364,8 @@ input {
   width: 46px;
   height: 28px;
   border-radius: 999px;
-  border: 1px solid rgba(94, 73, 48, 0.12);
-  background: rgba(115, 101, 86, 0.15);
+  border: 1px solid rgba(80, 100, 160, 0.12);
+  background: rgba(100, 115, 160, 0.14);
   transition:
     background-color 180ms var(--ease-out),
     border-color 180ms var(--ease-out),
@@ -380,15 +380,15 @@ input {
   width: 20px;
   height: 20px;
   border-radius: 999px;
-  background: #fffdf9;
-  box-shadow: 0 4px 10px rgba(38, 30, 22, 0.18);
+  background: #fafcff;
+  box-shadow: 0 4px 10px rgba(20, 25, 40, 0.16);
   transition: transform 180ms var(--ease-out);
 }
 
 .setting-switch:checked {
-  border-color: rgba(217, 128, 47, 0.24);
-  background: rgba(217, 128, 47, 0.28);
-  box-shadow: 0 0 0 4px rgba(217, 128, 47, 0.08);
+  border-color: rgba(59, 126, 255, 0.26);
+  background: rgba(59, 126, 255, 0.26);
+  box-shadow: 0 0 0 4px rgba(59, 126, 255, 0.08);
 }
 
 .setting-switch:checked::after {
@@ -400,17 +400,17 @@ input {
 }
 
 .log-card {
-  border: 1px solid rgba(94, 73, 48, 0.08);
+  border: 1px solid rgba(80, 100, 160, 0.08);
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.76), rgba(255, 248, 242, 0.9));
+    linear-gradient(180deg, rgba(255, 255, 255, 0.80), rgba(246, 250, 255, 0.92));
 }
 
 .log-entry-button,
 .timeline-card,
 .timeline-preview-row {
-  border: 1px solid rgba(94, 73, 48, 0.08);
+  border: 1px solid rgba(80, 100, 160, 0.08);
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.76), rgba(255, 248, 242, 0.9));
+    linear-gradient(180deg, rgba(255, 255, 255, 0.80), rgba(246, 250, 255, 0.92));
   transition:
     transform 180ms var(--ease-out),
     border-color 180ms var(--ease-out),
@@ -422,14 +422,14 @@ input {
 .timeline-card:hover,
 .timeline-preview-row:hover {
   transform: translateY(-1px);
-  border-color: rgba(94, 73, 48, 0.16);
-  box-shadow: 0 12px 28px rgba(76, 53, 26, 0.08);
+  border-color: rgba(80, 100, 160, 0.16);
+  box-shadow: 0 12px 28px rgba(30, 50, 110, 0.09);
 }
 
 .filter-chip,
 .agent-filter-chip {
-  border: 1px solid rgba(94, 73, 48, 0.1);
-  background: rgba(255, 255, 255, 0.74);
+  border: 1px solid rgba(80, 100, 160, 0.10);
+  background: rgba(255, 255, 255, 0.78);
   color: var(--text-secondary);
   transition:
     transform 180ms var(--ease-out),
@@ -441,15 +441,16 @@ input {
 .filter-chip:hover,
 .agent-filter-chip:hover {
   transform: translateY(-1px);
-  border-color: rgba(94, 73, 48, 0.16);
+  border-color: rgba(80, 100, 160, 0.18);
   color: var(--text-primary);
 }
 
 .filter-chip[data-active="true"],
 .agent-filter-chip[data-active="true"] {
-  border-color: rgba(217, 128, 47, 0.2);
-  background: rgba(255, 244, 232, 0.9);
-  color: var(--accent-strong);
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #ffffff;
+  box-shadow: 0 4px 12px rgba(59, 126, 255, 0.28);
 }
 
 .agent-filter-chip {
@@ -459,8 +460,8 @@ input {
 }
 
 .log-pre {
-  border: 1px solid rgba(94, 73, 48, 0.08);
-  background: rgba(52, 42, 31, 0.04);
+  border: 1px solid rgba(80, 100, 160, 0.08);
+  background: rgba(30, 40, 70, 0.04);
   color: var(--text-secondary);
 }
 
@@ -477,12 +478,12 @@ input {
   100% {
     box-shadow:
       var(--shadow-lg),
-      0 0 0 0 rgba(217, 128, 47, 0.12);
+      0 0 0 0 rgba(59, 126, 255, 0.12);
   }
   50% {
     box-shadow:
       var(--shadow-lg),
-      0 0 0 14px rgba(217, 128, 47, 0);
+      0 0 0 14px rgba(59, 126, 255, 0);
   }
 }
 

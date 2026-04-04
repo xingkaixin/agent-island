@@ -15,15 +15,15 @@ const labelBySource: Record<AgentSource, string> = {
 
 function statusTone(status?: SessionStatus, highlighted?: boolean) {
   if (highlighted || status === "permission") {
-    return "border-[rgba(217,128,47,0.24)] bg-[rgba(255,244,231,0.92)] shadow-[0_8px_20px_rgba(217,128,47,0.14)]";
+    return "border-[rgba(59,126,255,0.22)] bg-[rgba(235,243,255,0.94)] shadow-[0_8px_20px_rgba(59,126,255,0.12)]";
   }
   if (status === "attention" || status === "error") {
-    return "border-[rgba(213,90,77,0.18)] bg-[rgba(252,243,241,0.92)] shadow-[0_8px_20px_rgba(213,90,77,0.12)]";
+    return "border-[rgba(224,66,79,0.18)] bg-[rgba(255,242,243,0.94)] shadow-[0_8px_20px_rgba(224,66,79,0.10)]";
   }
   if (status === "idle" || status === "done") {
-    return "border-[rgba(94,73,48,0.12)] bg-[rgba(255,255,255,0.78)]";
+    return "border-[rgba(80,100,160,0.11)] bg-[rgba(255,255,255,0.82)]";
   }
-  return "border-[rgba(77,139,96,0.14)] bg-[rgba(245,250,246,0.92)] shadow-[0_8px_20px_rgba(77,139,96,0.08)]";
+  return "border-[rgba(34,166,99,0.14)] bg-[rgba(240,252,246,0.94)] shadow-[0_8px_20px_rgba(34,166,99,0.08)]";
 }
 
 interface AgentAvatarProps {

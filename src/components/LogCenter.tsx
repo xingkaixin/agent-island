@@ -97,7 +97,7 @@ export default function LogCenter({ entries, loading, onBack, onRefresh }: LogCe
         这里按时间倒序查看 AgentIsland 已消费的 hook 事件，同时保留 bridge 诊断阶段日志，方便定位“没收到事件”和“收到了但解释错了”这两类不同问题。
       </div>
 
-      <div className="mt-5 grid gap-4 rounded-[24px] border border-[var(--line)] bg-white/55 p-4">
+      <div className="mt-5 grid gap-4 rounded-[24px] border border-[var(--line)] bg-white/80 p-5">
         <div>
           <div className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-tertiary)]">
             视图
@@ -184,10 +184,11 @@ export default function LogCenter({ entries, loading, onBack, onRefresh }: LogCe
                         {entryStageLabel(entry)}
                       </span>
                     </div>
-                    <div className="mt-1 text-xs text-[var(--text-secondary)]">
-                      {agentSourceLabel(entry.source)}
-                      {entry.sessionId ? ` · ${entry.sessionId}` : ""}
-                    </div>
+                    {entry.sessionId ? (
+                      <div className="mt-1 text-xs text-[var(--text-secondary)]">
+                        {entry.sessionId}
+                      </div>
+                    ) : null}
                   </div>
                 </div>
                 <div className="shrink-0 text-right text-xs text-[var(--text-tertiary)]">

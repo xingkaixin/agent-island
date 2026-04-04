@@ -134,7 +134,7 @@ export default function Settings() {
       <motion.div
         {...staggerTransition}
         transition={{ duration: 0.34, ease: [0.22, 1, 0.36, 1] }}
-        className="settings-shell mx-auto flex max-w-5xl flex-col gap-6 rounded-[32px] p-6"
+        className="settings-shell mx-auto flex max-w-6xl flex-col gap-6 rounded-[32px] p-6"
       >
         <section className="settings-card relative overflow-hidden rounded-[28px] px-6 py-6">
           <div className="eyebrow">{page === "overview" ? "Settings" : "Log Center"}</div>
