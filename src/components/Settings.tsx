@@ -148,6 +148,10 @@ export default function Settings() {
 
             <section className="rounded-[28px] border border-[var(--line)] bg-white/80 p-6">
               <div className="text-lg font-semibold">最近日志</div>
+              <div className="mt-1 text-xs text-[var(--text-secondary)]">
+                应用内事件日志展示在这里；更底层的 hook 原始日志会写入
+                <span className="font-mono"> ~/.agentisland/logs/bridge.log</span>
+              </div>
               <div className="mt-4 max-h-96 space-y-3 overflow-auto">
                 {logs.map((log) => (
                   <div

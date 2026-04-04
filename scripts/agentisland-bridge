@@ -6,6 +6,28 @@ import sys
 from datetime import datetime, timezone
 
 
+def log_path():
+    home = os.environ.get("HOME", "/tmp")
+    return os.path.join(home, ".agentisland", "logs", "bridge.log")
+
+
+def append_log(stage, payload):
+    path = log_path()
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "a", encoding="utf-8") as handle:
+        handle.write(
+            json.dumps(
+                {
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                    "stage": stage,
+                    "payload": payload,
+                },
+                ensure_ascii=False,
+            )
+            + "\n"
+        )
+
+
 def first_str(raw, paths, default):
     for path in paths:
         current = raw
@@ -58,12 +80,14 @@ def main():
             raw,
             [
                 ["hookEventName"],
+                ["hook_event_name"],
                 ["eventName"],
                 ["event_name"],
                 ["event"],
                 ["kind"],
                 ["type"],
                 ["payload", "hookEventName"],
+                ["payload", "hook_event_name"],
                 ["payload", "eventName"],
                 ["payload", "event"],
                 ["payload", "kind"],
@@ -73,10 +97,12 @@ def main():
         ),
         "payload": raw,
     }
+    append_log("incoming", {"argv": sys.argv[1:], "raw": raw, "event": event})
 
     request = json.dumps({"event": event}).encode("utf-8")
     sock_path = socket_path()
     if not os.path.exists(sock_path):
+        append_log("socket-missing", {"socketPath": sock_path})
         print(
             f"agentisland-bridge: socket not found at {sock_path}. Launch AgentIsland first.",
             file=sys.stderr,
@@ -103,6 +129,7 @@ def main():
         return
 
     response = json.loads(raw_response)
+    append_log("response", response)
     if not response.get("ok"):
         print(response.get("error", "ipc request failed"), file=sys.stderr)
         sys.exit(1)
@@ -116,5 +143,6 @@ if __name__ == "__main__":
     try:
         main()
     except Exception as error:
+        append_log("error", {"message": str(error)})
         print(f"agentisland-bridge: {error}", file=sys.stderr)
         sys.exit(1)

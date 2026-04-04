@@ -1,5 +1,5 @@
 import type { SessionView } from "../types/agent";
-import AgentAvatar, { agentSourceLabel } from "./AgentAvatar";
+import AgentAvatar from "./AgentAvatar";
 
 function formatDuration(durationMs: number) {
   const totalSeconds = Math.max(0, Math.floor(durationMs / 1000));
@@ -9,6 +9,8 @@ function formatDuration(durationMs: number) {
 }
 
 export default function SessionRow({ session }: { session: SessionView }) {
+  const sessionLabel = session.id.length > 14 ? `${session.id.slice(0, 14)}…` : session.id;
+
   return (
     <div className="flex items-center gap-3 rounded-2xl border border-[var(--line)] bg-white/60 px-3 py-2">
       <AgentAvatar
@@ -18,7 +20,7 @@ export default function SessionRow({ session }: { session: SessionView }) {
       />
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2 text-sm font-semibold">
-          <span>{agentSourceLabel(session.source)}</span>
+          <span>{sessionLabel}</span>
           <span className="rounded-full bg-black/5 px-2 py-0.5 text-[11px] font-medium text-[var(--text-secondary)]">
             {formatDuration(session.durationMs)}
           </span>

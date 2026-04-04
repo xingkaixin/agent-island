@@ -85,12 +85,14 @@ fn extract_session_id(raw: &Value) -> String {
 fn extract_kind(raw: &Value) -> String {
     first_str(raw, &[
         &["hookEventName"],
+        &["hook_event_name"],
         &["eventName"],
         &["event_name"],
         &["event"],
         &["kind"],
         &["type"],
         &["payload", "hookEventName"],
+        &["payload", "hook_event_name"],
         &["payload", "eventName"],
         &["payload", "event"],
         &["payload", "kind"],

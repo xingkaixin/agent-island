@@ -1,6 +1,6 @@
 import { Check, X } from "lucide-react";
 import type { PermissionRequestView } from "../types/agent";
-import AgentAvatar, { agentSourceLabel } from "./AgentAvatar";
+import AgentAvatar from "./AgentAvatar";
 
 interface PermissionCardProps {
   permission: PermissionRequestView;
@@ -20,13 +20,13 @@ export default function PermissionCard({
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-start gap-3">
           <AgentAvatar highlighted size="sm" source={permission.source} status="permission" />
-          <div>
-            <div className="text-sm font-semibold">需要审批</div>
-            <div className="text-xs text-[var(--text-secondary)]">
-              {agentSourceLabel(permission.source)} / {permission.sessionId}
+            <div>
+              <div className="text-sm font-semibold">需要审批</div>
+              <div className="text-xs text-[var(--text-secondary)]">
+                {permission.sessionId}
+              </div>
             </div>
           </div>
-        </div>
         <div className="rounded-full bg-[var(--accent)]/10 px-2.5 py-1 text-xs font-semibold text-[var(--accent-strong)]">
           {permission.toolName}
         </div>

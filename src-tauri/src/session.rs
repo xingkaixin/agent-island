@@ -141,8 +141,9 @@ impl SessionStore {
 
     pub fn apply_event(&mut self, event: &AgentEvent) -> Option<PermissionRequestView> {
         let now = event.timestamp.unwrap_or_else(Utc::now);
-        let session = self.sessions.entry(event.session_id.clone()).or_insert_with(|| SessionRecord {
-            id: event.session_id.clone(),
+        let session_id = self.resolve_session_id(event);
+        let session = self.sessions.entry(session_id.clone()).or_insert_with(|| SessionRecord {
+            id: session_id.clone(),
             source: event.source.clone(),
             title: format!("{} session", event.source),
             status: "running".into(),
@@ -157,6 +158,7 @@ impl SessionStore {
             needs_user_attention: false,
             subagent_count: 0,
         });
+        session.id = session_id;
 
         if let Some(cwd) = event.payload.get("cwd").and_then(Value::as_str) {
             session.cwd = Some(cwd.to_string());
@@ -326,6 +328,27 @@ impl SessionStore {
         None
     }
 
+    fn resolve_session_id(&self, event: &AgentEvent) -> String {
+        if !is_unknown_session_id(&event.session_id) {
+            return event.session_id.clone();
+        }
+
+        let mut candidates = self
+            .sessions
+            .values()
+            .filter(|session| {
+                session.source == event.source && !matches!(session.status.as_str(), "done" | "error")
+            })
+            .map(|session| session.id.clone())
+            .collect::<Vec<_>>();
+
+        if candidates.len() == 1 {
+            return candidates.pop().unwrap();
+        }
+
+        event.session_id.clone()
+    }
+
     pub fn snapshot(&self) -> Vec<SessionView> {
         let now = Utc::now();
         let mut sessions = self
@@ -365,4 +388,9 @@ impl SessionStore {
             session.status_detail = format!("permission {decision}");
         }
     }
+}
+
+fn is_unknown_session_id(session_id: &str) -> bool {
+    let trimmed = session_id.trim();
+    trimmed.is_empty() || trimmed == "unknown-session"
 }
