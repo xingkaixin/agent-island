@@ -15,12 +15,15 @@ const labelBySource: Record<AgentSource, string> = {
 
 function statusTone(status?: SessionStatus, highlighted?: boolean) {
   if (highlighted || status === "permission") {
-    return "border-[var(--accent)]/40 bg-[var(--accent)]/8";
+    return "border-[rgba(217,128,47,0.24)] bg-[rgba(255,244,231,0.92)] shadow-[0_8px_20px_rgba(217,128,47,0.14)]";
   }
   if (status === "attention" || status === "error") {
-    return "border-[var(--danger)]/25 bg-[var(--danger-soft)]";
+    return "border-[rgba(213,90,77,0.18)] bg-[rgba(252,243,241,0.92)] shadow-[0_8px_20px_rgba(213,90,77,0.12)]";
   }
-  return "border-[var(--line)] bg-white/75";
+  if (status === "idle" || status === "done") {
+    return "border-[rgba(94,73,48,0.12)] bg-[rgba(255,255,255,0.78)]";
+  }
+  return "border-[rgba(77,139,96,0.14)] bg-[rgba(245,250,246,0.92)] shadow-[0_8px_20px_rgba(77,139,96,0.08)]";
 }
 
 interface AgentAvatarProps {
@@ -43,14 +46,15 @@ export default function AgentAvatar({
   return (
     <span
       className={clsx(
-        "flex shrink-0 items-center justify-center overflow-hidden rounded-full border",
+        "relative flex shrink-0 items-center justify-center overflow-hidden rounded-full border transition-transform duration-200 ease-[var(--ease-out)]",
+        "before:absolute before:inset-[1px] before:rounded-full before:bg-[linear-gradient(180deg,rgba(255,255,255,0.58),rgba(255,255,255,0))] before:content-['']",
         statusTone(status, highlighted),
-        size === "sm" ? "h-8 w-8" : "h-10 w-10",
+        size === "sm" ? "h-9 w-9" : "h-11 w-11",
       )}
     >
       <img
         alt={labelBySource[source]}
-        className={clsx("object-contain", size === "sm" ? "h-5 w-5" : "h-6 w-6")}
+        className={clsx("relative z-10 object-contain", size === "sm" ? "h-5 w-5" : "h-6 w-6")}
         src={iconBySource[source]}
       />
     </span>
