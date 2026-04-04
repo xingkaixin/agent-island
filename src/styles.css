@@ -1,0 +1,94 @@
+@import "tailwindcss";
+
+:root {
+  color-scheme: light;
+  font-family:
+    "SF Pro Display",
+    "PingFang SC",
+    "Hiragino Sans GB",
+    sans-serif;
+  --bg-shell: rgba(255, 250, 242, 0.84);
+  --bg-glass: rgba(255, 255, 255, 0.68);
+  --bg-strong: rgba(28, 27, 24, 0.9);
+  --text-primary: #1f1a14;
+  --text-secondary: #665f56;
+  --accent: #ff7a18;
+  --accent-strong: #db5d00;
+  --danger: #ef4444;
+  --danger-soft: rgba(239, 68, 68, 0.14);
+  --success: #16a34a;
+  --line: rgba(88, 71, 48, 0.12);
+  background:
+    radial-gradient(circle at top, rgba(255, 188, 116, 0.25), transparent 36%),
+    linear-gradient(180deg, rgba(255, 248, 238, 0.8), rgba(246, 239, 228, 0.18));
+  color: var(--text-primary);
+}
+
+html,
+body,
+#root {
+  width: 100%;
+  min-height: 100%;
+  margin: 0;
+}
+
+body {
+  background: transparent;
+  overflow: hidden;
+  user-select: none;
+}
+
+button {
+  cursor: pointer;
+}
+
+.window-drag {
+  -webkit-app-region: drag;
+}
+
+.no-drag {
+  -webkit-app-region: no-drag;
+}
+
+.capsule-shadow {
+  box-shadow:
+    0 24px 60px rgba(73, 48, 19, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.7);
+}
+
+.menu-panel {
+  box-shadow:
+    0 24px 70px rgba(73, 48, 19, 0.22),
+    0 8px 24px rgba(73, 48, 19, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.7);
+}
+
+.attention-ring {
+  animation: pulse-ring 1.8s infinite;
+}
+
+.session-pulse {
+  animation: pulse-dot 1.4s infinite;
+}
+
+@keyframes pulse-ring {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(255, 122, 24, 0.22);
+  }
+  50% {
+    box-shadow: 0 0 0 12px rgba(255, 122, 24, 0);
+  }
+}
+
+@keyframes pulse-dot {
+  0%,
+  100% {
+    opacity: 0.45;
+    transform: scale(0.95);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}

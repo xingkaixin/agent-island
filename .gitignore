@@ -1,0 +1,9 @@
+# agent
+.claude
+.agents
+
+
+dist
+node_modules
+
+src-tauri/target

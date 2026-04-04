@@ -1,0 +1,28 @@
+[package]
+name = "agent-island"
+version = "0.1.0"
+description = "AgentIsland desktop app"
+authors = ["Kevin"]
+edition = "2021"
+default-run = "agent-island"
+
+[lib]
+name = "agent_island_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2.0.1", features = [] }
+
+[dependencies]
+chrono = { version = "0.4.40", features = ["serde"] }
+objc2 = "0.6.3"
+objc2-app-kit = { version = "0.3.2", features = ["NSWindow", "NSScreen", "NSGraphics", "NSView"] }
+objc2-foundation = { version = "0.3.2", features = ["NSGeometry", "NSThread"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+tauri = { version = "2.3.1", features = ["macos-private-api", "tray-icon", "image-png"] }
+tauri-plugin-autostart = "2.2.0"
+tauri-plugin-notification = "2.2.1"
+tauri-plugin-opener = "2.2.6"
+tokio = { version = "1.43.0", features = ["full"] }
+uuid = { version = "1.12.1", features = ["v4", "serde"] }

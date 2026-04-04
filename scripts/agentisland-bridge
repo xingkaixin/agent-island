@@ -1,0 +1,120 @@
+#!/usr/bin/env python3
+import json
+import os
+import socket
+import sys
+from datetime import datetime, timezone
+
+
+def first_str(raw, paths, default):
+    for path in paths:
+        current = raw
+        for segment in path:
+            if not isinstance(current, dict) or segment not in current:
+                current = None
+                break
+            current = current[segment]
+        if isinstance(current, str) and current:
+            return current
+    return default
+
+
+def socket_path():
+    home = os.environ.get("HOME", "/tmp")
+    return os.path.join(home, ".agentisland", "run", "agentisland.sock")
+
+
+def main():
+    args = sys.argv[1:]
+    source = "unknown"
+    for index, arg in enumerate(args[:-1]):
+        if arg == "--source":
+            source = args[index + 1]
+            break
+
+    raw_stdin = sys.stdin.read()
+    raw = {}
+    if raw_stdin.strip():
+        raw = json.loads(raw_stdin)
+
+    event = {
+        "source": source,
+        "sessionId": first_str(
+            raw,
+            [
+                ["sessionId"],
+                ["session_id"],
+                ["conversationId"],
+                ["conversation_id"],
+                ["chatId"],
+                ["chat_id"],
+                ["payload", "sessionId"],
+                ["payload", "session_id"],
+            ],
+            "unknown-session",
+        ),
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "kind": first_str(
+            raw,
+            [
+                ["hookEventName"],
+                ["eventName"],
+                ["event_name"],
+                ["event"],
+                ["kind"],
+                ["type"],
+                ["payload", "hookEventName"],
+                ["payload", "eventName"],
+                ["payload", "event"],
+                ["payload", "kind"],
+                ["payload", "type"],
+            ],
+            "unknown",
+        ),
+        "payload": raw,
+    }
+
+    request = json.dumps({"event": event}).encode("utf-8")
+    sock_path = socket_path()
+    if not os.path.exists(sock_path):
+        print(
+            f"agentisland-bridge: socket not found at {sock_path}. Launch AgentIsland first.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    client = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+    try:
+        client.connect(sock_path)
+        client.sendall(request)
+        client.shutdown(socket.SHUT_WR)
+
+        chunks = []
+        while True:
+            chunk = client.recv(65536)
+            if not chunk:
+                break
+            chunks.append(chunk)
+    finally:
+        client.close()
+
+    raw_response = b"".join(chunks).decode("utf-8").strip()
+    if not raw_response:
+        return
+
+    response = json.loads(raw_response)
+    if not response.get("ok"):
+        print(response.get("error", "ipc request failed"), file=sys.stderr)
+        sys.exit(1)
+
+    decision = response.get("decision")
+    if decision is not None:
+        sys.stdout.write(json.dumps(decision))
+
+
+if __name__ == "__main__":
+    try:
+        main()
+    except Exception as error:
+        print(f"agentisland-bridge: {error}", file=sys.stderr)
+        sys.exit(1)
