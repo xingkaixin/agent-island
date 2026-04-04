@@ -1,7 +1,7 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use chrono::Utc;
+use chrono::{DateTime, Utc};
 use serde_json::{json, Value};
 
 use crate::session::InstallStatusItem;
@@ -66,6 +66,7 @@ pub fn agent_config_path(agent: &str) -> PathBuf {
 }
 
 pub fn install_status() -> Vec<InstallStatusItem> {
+    let bridge_activity = latest_bridge_activity();
     ["claude", "codex", "cursor"]
         .into_iter()
         .map(|agent| {
@@ -79,6 +80,7 @@ pub fn install_status() -> Vec<InstallStatusItem> {
                 false
             };
             let backup_path = latest_backup_path(&path).map(|path| path.display().to_string());
+            let activity = bridge_activity.get(agent);
 
             InstallStatusItem {
                 agent: agent.into(),
@@ -86,6 +88,9 @@ pub fn install_status() -> Vec<InstallStatusItem> {
                 exists,
                 injected,
                 backup_path,
+                last_seen_at: activity.map(|item| item.timestamp.to_rfc3339()),
+                last_seen_kind: activity.map(|item| item.kind.clone()),
+                last_seen_workspace: activity.and_then(|item| item.workspace.clone()),
             }
         })
         .collect()
@@ -258,6 +263,88 @@ fn read_json_or_default(path: &Path) -> Result<Value, Box<dyn std::error::Error>
         return Ok(json!({}));
     }
     Ok(serde_json::from_str(&content)?)
+}
+
+#[derive(Clone)]
+struct BridgeActivity {
+    timestamp: DateTime<Utc>,
+    kind: String,
+    workspace: Option<String>,
+}
+
+fn latest_bridge_activity() -> std::collections::HashMap<&'static str, BridgeActivity> {
+    let path = Path::new(&std::env::var("HOME").unwrap_or_default())
+        .join(".agentisland")
+        .join("logs")
+        .join("bridge.log");
+    let Ok(content) = fs::read_to_string(path) else {
+        return std::collections::HashMap::new();
+    };
+
+    let mut result = std::collections::HashMap::new();
+    for line in content.lines() {
+        let Ok(value) = serde_json::from_str::<Value>(line) else {
+            continue;
+        };
+        if value.get("stage").and_then(Value::as_str) != Some("incoming") {
+            continue;
+        }
+
+        let payload = value.get("payload").and_then(Value::as_object);
+        let event = payload.and_then(|payload| payload.get("event"));
+        let Some(source) = event
+            .and_then(|event| event.get("source"))
+            .and_then(Value::as_str)
+        else {
+            continue;
+        };
+        if !matches!(source, "claude" | "codex" | "cursor") {
+            continue;
+        }
+
+        let Some(timestamp) = value
+            .get("timestamp")
+            .and_then(Value::as_str)
+            .and_then(|raw| DateTime::parse_from_rfc3339(raw).ok())
+            .map(|value| value.with_timezone(&Utc))
+        else {
+            continue;
+        };
+
+        let kind = event
+            .and_then(|event| event.get("kind"))
+            .and_then(Value::as_str)
+            .unwrap_or("unknown")
+            .to_string();
+        let workspace = payload
+            .and_then(|payload| payload.get("raw"))
+            .and_then(extract_workspace_hint);
+
+        result.insert(
+            match source {
+                "claude" => "claude",
+                "codex" => "codex",
+                "cursor" => "cursor",
+                _ => unreachable!(),
+            },
+            BridgeActivity {
+                timestamp,
+                kind,
+                workspace,
+            },
+        );
+    }
+
+    result
+}
+
+fn extract_workspace_hint(raw: &Value) -> Option<String> {
+    raw.get("workspace_roots")
+        .and_then(Value::as_array)
+        .and_then(|items| items.first())
+        .and_then(Value::as_str)
+        .map(str::to_string)
+        .or_else(|| raw.get("cwd").and_then(Value::as_str).map(str::to_string))
 }
 
 fn write_json(path: &Path, value: Value) -> Result<(), Box<dyn std::error::Error>> {

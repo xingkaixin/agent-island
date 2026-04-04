@@ -56,6 +56,9 @@ pub struct InstallStatusItem {
     pub exists: bool,
     pub injected: bool,
     pub backup_path: Option<String>,
+    pub last_seen_at: Option<String>,
+    pub last_seen_kind: Option<String>,
+    pub last_seen_workspace: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

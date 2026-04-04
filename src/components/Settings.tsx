@@ -52,6 +52,21 @@ function formatTime(value: string) {
   });
 }
 
+function lastSeenSummary(item: InstallStatusItem | undefined) {
+  if (!item?.lastSeenAt) {
+    return "还没有收到过 bridge 命中记录";
+  }
+
+  const parts = [`最近命中 ${formatTime(item.lastSeenAt)}`];
+  if (item.lastSeenKind) {
+    parts.push(item.lastSeenKind);
+  }
+  if (item.lastSeenWorkspace) {
+    parts.push(item.lastSeenWorkspace);
+  }
+  return parts.join(" · ");
+}
+
 export default function Settings() {
   const { preferences, logs, updatePreferences, replaceState } = useSessionStore();
   const [installStatus, setInstallStatus] = useState<InstallStatusItem[]>([]);
@@ -205,9 +220,11 @@ export default function Settings() {
                         </div>
                       </div>
 
-                      {item?.agent === "cursor" ? (
+                      {item ? (
                         <div className="mt-3 rounded-2xl bg-[var(--bg-muted)] px-3 py-2 text-xs leading-5 text-[var(--text-secondary)]">
-                          Cursor 会话后续只要再产生新的 hook 事件，就会重新进入活跃列表；日志中心则会保留它收到过的完整时间线。
+                          {item.agent === "cursor"
+                            ? `Cursor 会话后续只要再产生新的 hook 事件，就会重新进入活跃列表。${lastSeenSummary(item)}`
+                            : lastSeenSummary(item)}
                         </div>
                       ) : null}
 

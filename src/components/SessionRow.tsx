@@ -49,6 +49,20 @@ function formatDuration(durationMs: number) {
   return `${minutes}:${String(seconds).padStart(2, "0")}`;
 }
 
+function formatWorkspaceLabel(cwd?: string | null) {
+  if (!cwd) {
+    return "未提供路径";
+  }
+
+  const trimmed = cwd.replace(/[\\/]+$/, "");
+  if (!trimmed) {
+    return cwd;
+  }
+
+  const segments = trimmed.split(/[\\/]/).filter(Boolean);
+  return segments.length > 0 ? segments[segments.length - 1] : cwd;
+}
+
 export default function SessionRow({ session }: { session: SessionView }) {
   const tone = statusTone(session);
 
@@ -73,7 +87,7 @@ export default function SessionRow({ session }: { session: SessionView }) {
             {statusLabel(session)}
           </span>
         </div>
-        <div className="session-path mt-2 truncate">{session.cwd ?? "未提供路径"}</div>
+        <div className="session-path mt-2 truncate">{formatWorkspaceLabel(session.cwd)}</div>
         <div className="mt-1 truncate text-xs text-[var(--text-secondary)]">{session.statusDetail}</div>
       </div>
       <div className="shrink-0 text-right">

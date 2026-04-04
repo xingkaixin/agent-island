@@ -160,32 +160,8 @@ export default function App() {
             </button>
           </div>
 
-          <div className="mt-4 flex items-center justify-between gap-3">
-            <div className="flex min-w-0 items-center gap-2">
-              {sessions.length > 0 ? (
-                sessions.slice(0, 5).map((session, index) => (
-                  <motion.div
-                    key={session.id}
-                    initial={reduceMotion ? false : { opacity: 0, scale: 0.92, x: 10 }}
-                    animate={reduceMotion ? {} : { opacity: 1, scale: 1, x: 0 }}
-                    transition={{ duration: 0.26, delay: 0.03 * index, ease: [0.22, 1, 0.36, 1] }}
-                  >
-                    <AgentAvatar
-                      highlighted={session.hasPendingPermission || session.needsUserAttention}
-                      size="sm"
-                      source={session.source}
-                      status={session.status}
-                    />
-                  </motion.div>
-                ))
-              ) : (
-                <span className="flex h-9 w-9 items-center justify-center rounded-full border border-[var(--line)] bg-white/70 text-[var(--text-secondary)]">
-                  <CircleDot className="h-4 w-4" />
-                </span>
-              )}
-            </div>
-
-            <div className="grid min-w-0 flex-1 grid-cols-3 gap-2">
+          <div className="mt-4">
+            <div className="grid min-w-0 grid-cols-3 gap-2">
               <div
                 className="metric-chip rounded-2xl px-3 py-2 text-center"
                 data-tone={metricTone(sessionSummary.running, "active")}

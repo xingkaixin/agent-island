@@ -49,6 +49,9 @@ export interface InstallStatusItem {
   exists: boolean;
   injected: boolean;
   backupPath?: string | null;
+  lastSeenAt?: string | null;
+  lastSeenKind?: string | null;
+  lastSeenWorkspace?: string | null;
 }
 
 export interface UserPreferences {
