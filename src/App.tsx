@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { BellRing, CircleDot, Settings2 } from "lucide-react";
+import { CircleDot, Settings2 } from "lucide-react";
 import SessionRow from "./components/SessionRow";
 import Settings from "./components/Settings";
 import AgentAvatar from "./components/AgentAvatar";
@@ -109,11 +109,6 @@ export default function App() {
         <div className="flex items-start justify-between gap-3 border-b border-[var(--line)] px-4 py-4">
           <div className="min-w-0">
             <div className="flex items-center gap-2 text-sm font-semibold">
-              {hasAttention || permissionRequest ? (
-                <BellRing className="h-4 w-4 text-[var(--accent-strong)]" />
-              ) : (
-                <CircleDot className="h-4 w-4 text-[var(--text-secondary)]" />
-              )}
               <span className="flex items-center gap-2">
                 <span className="flex h-6 w-6 items-center justify-center overflow-hidden rounded-md border border-[var(--line)] bg-white/80">
                   <img alt="AgentIsland" className="h-4 w-4 object-contain" src="/app-icon.png" />

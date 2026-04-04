@@ -87,7 +87,7 @@ export default function Settings() {
                     </div>
                     {item?.agent === "cursor" ? (
                       <div className="mt-3 text-xs leading-5 text-[var(--text-secondary)]">
-                        Cursor hook 事件已经会写入应用日志；菜单只展示活跃会话，已结束或闲置超时的会话不会继续保留在菜单里。
+                        Cursor 同一会话后续只要再产生新的 hook 事件，就会重新进入活跃列表；但菜单仍只展示活跃窗口内的会话，结束或闲置超时后会再次隐藏。
                       </div>
                     ) : null}
                     <div className="mt-4 flex flex-wrap gap-2">
@@ -165,7 +165,7 @@ export default function Settings() {
               <div className="mt-1 text-xs text-[var(--text-secondary)]">
                 应用内事件日志展示在这里；更底层的 hook 原始日志会写入
                 <span className="font-mono"> ~/.agentisland/logs/bridge.log</span>
-                。如果这里能看到 Cursor 日志但菜单没显示，通常表示会话已结束或已超出活跃窗口，而不是 hook 没收到。
+                。如果这里能看到 Cursor 日志但菜单没显示，通常表示它已经超出当前活跃窗口；同一会话后续有新 hook 时，它会再次出现。
               </div>
               <div className="mt-4 max-h-96 space-y-3 overflow-auto">
                 {logs.map((log) => (
