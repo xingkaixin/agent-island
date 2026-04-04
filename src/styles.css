@@ -595,11 +595,13 @@ input {
   box-shadow: 0 4px 12px rgba(59, 126, 255, 0.28);
 }
 
-.log-kind-chip.filter-chip:not([data-active="true"]) {
+.log-kind-chip.filter-chip:not([data-active="true"]),
+.log-session-chip.filter-chip:not([data-active="true"]) {
   background: #ffffff;
 }
 
-.log-kind-chip.filter-chip:hover {
+.log-kind-chip.filter-chip:hover,
+.log-session-chip.filter-chip:hover {
   transform: none;
 }
 

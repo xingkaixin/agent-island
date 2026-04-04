@@ -47,12 +47,32 @@ struct MenuBarSummary {
     attention_count: usize,
 }
 
+/// Distinguishes tray PNG + running animation frame. Idle/Attention ignore `phase`.
+#[derive(Clone, Copy, PartialEq, Eq)]
+struct TrayIconKey {
+    state: MenuBarState,
+    /// 0/1 when `state == Running`; always 0 otherwise.
+    running_frame: u8,
+}
+
+fn tray_icon_key(state: MenuBarState, phase: usize) -> TrayIconKey {
+    TrayIconKey {
+        state,
+        running_frame: match state {
+            MenuBarState::Running => (phase % 2) as u8,
+            _ => 0,
+        },
+    }
+}
+
 pub struct AppServices {
     sessions: Mutex<SessionStore>,
     preferences: Mutex<UserPreferences>,
     app_data_dir: PathBuf,
     bridge_log_path: PathBuf,
     tray_anchor: Mutex<Option<TrayAnchor>>,
+    /// Last tray icon + summary applied; avoids redundant `set_icon` / template / title (Idle flicker).
+    tray_last_applied: Mutex<Option<(TrayIconKey, MenuBarSummary)>>,
 }
 
 impl AppServices {
@@ -164,10 +184,25 @@ fn sync_tray_state(
     let snapshot = services.snapshot();
     let state = derive_menu_bar_state(&snapshot);
     let summary = derive_menu_bar_summary(&snapshot);
+    let icon_key = tray_icon_key(state, phase);
+
     if let Some(tray) = app.tray_by_id(TRAY_ID) {
-        tray.set_icon(Some(tray_icon_for(state, phase)))?;
-        tray.set_tooltip(Some(tray_tooltip_for(summary)))?;
-        tray.set_title(tray_title_for(summary))?;
+        let mut last = services.tray_last_applied.lock().unwrap();
+        let icon_changed = last.map(|(k, _)| k != icon_key).unwrap_or(true);
+        let summary_changed = last.map(|(_, s)| s != summary).unwrap_or(true);
+
+        if icon_changed {
+            tray.set_icon(Some(tray_icon_for(state, phase)))?;
+            #[cfg(target_os = "macos")]
+            tray.set_icon_as_template(true)?;
+        }
+        if summary_changed {
+            tray.set_tooltip(Some(tray_tooltip_for(summary)))?;
+            tray.set_title(tray_title_for(summary))?;
+        }
+        if icon_changed || summary_changed {
+            *last = Some((icon_key, summary));
+        }
     }
     Ok(())
 }
@@ -481,6 +516,7 @@ pub fn run() {
                 app_data_dir: app_data_dir.clone(),
                 bridge_log_path: bridge_log_path(),
                 tray_anchor: Mutex::new(None),
+                tray_last_applied: Mutex::new(None),
             });
 
             app.set_activation_policy(ActivationPolicy::Accessory);

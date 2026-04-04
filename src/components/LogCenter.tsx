@@ -46,6 +46,7 @@ export default function LogCenter({
 }: LogCenterProps) {
   const [selectedSources, setSelectedSources] = useState<AgentSource[]>([]);
   const [selectedKinds, setSelectedKinds] = useState<string[]>([]);
+  const [selectedSessionIds, setSelectedSessionIds] = useState<string[]>([]);
   const [viewMode, setViewMode] = useState<"all" | "event" | "bridge">("all");
   const [startLocal, setStartLocal] = useState("");
   const [endLocal, setEndLocal] = useState("");
@@ -59,6 +60,16 @@ export default function LogCenter({
       ),
     [entries],
   );
+
+  const sessionIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const entry of entries) {
+      if (entry.sessionId) {
+        ids.add(entry.sessionId);
+      }
+    }
+    return Array.from(ids).sort((left, right) => left.localeCompare(right));
+  }, [entries]);
 
   const rangeBounds = useMemo(() => {
     const startMs = startLocal ? new Date(startLocal).getTime() : null;
@@ -78,6 +89,12 @@ export default function LogCenter({
         if (selectedKinds.length > 0 && !selectedKinds.includes(entry.kind)) {
           return false;
         }
+        if (
+          selectedSessionIds.length > 0 &&
+          (!entry.sessionId || !selectedSessionIds.includes(entry.sessionId))
+        ) {
+          return false;
+        }
         const t = new Date(entry.createdAt).getTime();
         if (rangeBounds.startMs !== null && !Number.isNaN(rangeBounds.startMs) && t < rangeBounds.startMs) {
           return false;
@@ -87,7 +104,7 @@ export default function LogCenter({
         }
         return true;
       }),
-    [entries, rangeBounds, selectedKinds, selectedSources, viewMode],
+    [entries, rangeBounds, selectedKinds, selectedSessionIds, selectedSources, viewMode],
   );
 
   function toggleSource(source: AgentSource) {
@@ -99,6 +116,14 @@ export default function LogCenter({
   function toggleKind(kind: string) {
     setSelectedKinds((current) =>
       current.includes(kind) ? current.filter((item) => item !== kind) : [...current, kind],
+    );
+  }
+
+  function toggleSessionId(sessionId: string) {
+    setSelectedSessionIds((current) =>
+      current.includes(sessionId)
+        ? current.filter((item) => item !== sessionId)
+        : [...current, sessionId],
     );
   }
 
@@ -263,13 +288,33 @@ export default function LogCenter({
               {kinds.map((kind) => (
                 <button
                   key={kind}
-                  className="log-kind-chip filter-chip min-w-0 max-w-[6.5rem] truncate rounded px-1.5 py-0 text-[9px] font-semibold leading-none"
+                  className="log-kind-chip filter-chip max-w-full rounded px-1.5 py-1 text-left text-[8px] font-semibold leading-snug break-all whitespace-normal"
                   data-active={selectedKinds.includes(kind)}
                   onClick={() => toggleKind(kind)}
                   title={kind}
                   type="button"
                 >
                   {kind}
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : null}
+
+        {sessionIds.length > 0 ? (
+          <div>
+            <div className="text-[10px] font-bold uppercase tracking-[0.12em] text-[var(--text-tertiary)]">会话</div>
+            <div className="mt-1.5 flex max-h-20 flex-wrap gap-0.5 overflow-y-auto">
+              {sessionIds.map((sessionId) => (
+                <button
+                  key={sessionId}
+                  className="log-session-chip filter-chip max-w-full rounded px-1.5 py-1 text-left text-[8px] font-semibold leading-snug break-all whitespace-normal font-mono"
+                  data-active={selectedSessionIds.includes(sessionId)}
+                  onClick={() => toggleSessionId(sessionId)}
+                  title={sessionId}
+                  type="button"
+                >
+                  {sessionId}
                 </button>
               ))}
             </div>
@@ -287,35 +332,44 @@ export default function LogCenter({
                 className="log-row-compact rounded-lg border border-[var(--line)] bg-white"
               >
                 <button
-                  className="flex w-full items-center gap-2 px-2 py-2 text-left"
+                  className="flex w-full items-start gap-2 px-2 py-2 text-left"
                   onClick={() => setExpandedId(open ? null : entry.id)}
                   type="button"
                 >
                   {open ? (
-                    <ChevronDown className="h-4 w-4 shrink-0 text-[var(--text-tertiary)]" aria-hidden />
+                    <ChevronDown className="mt-0.5 h-4 w-4 shrink-0 text-[var(--text-tertiary)]" aria-hidden />
                   ) : (
-                    <ChevronRight className="h-4 w-4 shrink-0 text-[var(--text-tertiary)]" aria-hidden />
+                    <ChevronRight className="mt-0.5 h-4 w-4 shrink-0 text-[var(--text-tertiary)]" aria-hidden />
                   )}
-                  <AgentAvatar
-                    size="sm"
-                    source={
-                      agents.includes(entry.source as AgentSource)
-                        ? (entry.source as AgentSource)
-                        : "codex"
-                    }
-                  />
+                  <div className="mt-0.5 shrink-0">
+                    <AgentAvatar
+                      size="sm"
+                      source={
+                        agents.includes(entry.source as AgentSource)
+                          ? (entry.source as AgentSource)
+                          : "codex"
+                      }
+                    />
+                  </div>
                   <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-1.5">
-                      <span className="truncate text-[13px] font-semibold">{entry.kind}</span>
+                    <div className="flex flex-wrap items-start gap-1.5">
+                      <span className="min-w-0 text-[11px] font-semibold leading-snug break-all whitespace-normal">
+                        {entry.kind}
+                      </span>
                       <span className="shrink-0 rounded bg-[var(--bg-muted)] px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-[0.1em] text-[var(--text-tertiary)]">
                         {entryStageLabel(entry)}
                       </span>
                     </div>
                     {entry.sessionId ? (
-                      <div className="truncate text-[10px] text-[var(--text-secondary)]">{entry.sessionId}</div>
+                      <div className="mt-0.5 font-mono text-[9px] leading-snug break-all text-[var(--text-secondary)]">
+                        {entry.sessionId}
+                      </div>
                     ) : null}
                   </div>
-                  <time className="shrink-0 text-[10px] text-[var(--text-tertiary)]" dateTime={entry.createdAt}>
+                  <time
+                    className="mt-0.5 shrink-0 text-[10px] text-[var(--text-tertiary)]"
+                    dateTime={entry.createdAt}
+                  >
                     {formatTime(entry.createdAt)}
                   </time>
                 </button>
