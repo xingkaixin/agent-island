@@ -5,7 +5,6 @@ import type {
   AppStateSnapshot,
   InstallStatusItem,
   LogEntry,
-  PermissionDecisionPayload,
   UserPreferences,
 } from "../types/agent";
 
@@ -24,14 +23,6 @@ export function onAppStateUpdated(handler: (state: AppStateSnapshot) => void) {
 
 export async function getAppState() {
   return invoke<AppStateSnapshot>("get_app_state");
-}
-
-export async function approvePermission(requestId: string) {
-  return invoke("approve_permission", { requestId });
-}
-
-export async function denyPermission(requestId: string, reason: string) {
-  return invoke("deny_permission", { requestId, reason });
 }
 
 export async function openSettingsWindow() {
@@ -60,8 +51,4 @@ export async function setUserPreferences(preferences: UserPreferences) {
 
 export async function getRecentLogs(limit: number) {
   return invoke<LogEntry[]>("get_recent_logs", { limit });
-}
-
-export function describeDecision(decision: PermissionDecisionPayload["decision"]) {
-  return decision === "approve" ? "允许" : "拒绝";
 }

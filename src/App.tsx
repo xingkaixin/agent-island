@@ -1,13 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { BellRing, CircleDot, Settings2 } from "lucide-react";
-import PermissionCard from "./components/PermissionCard";
 import SessionRow from "./components/SessionRow";
 import Settings from "./components/Settings";
 import AgentAvatar from "./components/AgentAvatar";
 import {
-  approvePermission,
-  denyPermission,
   getAppState,
   getCurrentWindowLabel,
   onAppStateUpdated,
@@ -17,7 +14,6 @@ import { useSessionStore } from "./store/sessions";
 
 export default function App() {
   const { hydrated, sessions, permissionRequest, replaceState } = useSessionStore();
-  const [decisionBusy, setDecisionBusy] = useState(false);
   const [windowLabel, setWindowLabel] = useState("main");
 
   useEffect(() => {
@@ -55,6 +51,10 @@ export default function App() {
     () => sessions.some((session) => session.needsUserAttention),
     [sessions],
   );
+  const attentionSession = useMemo(
+    () => sessions.find((session) => session.needsUserAttention || session.hasPendingPermission),
+    [sessions],
+  );
 
   useEffect(() => {
     if (windowLabel !== "main") {
@@ -75,13 +75,11 @@ export default function App() {
     return <Settings />;
   }
 
-  const statusText = permissionRequest
-    ? "等待你处理权限请求"
-    : hasAttention
-      ? "Agent 需要你返回终端处理"
-      : sessions.length > 0
-        ? `${sessions.length} 个 agent 正在运行`
-        : "暂无运行中的 agent";
+  const statusText = hasAttention || permissionRequest
+    ? "Agent 需要你回到终端处理"
+    : sessions.length > 0
+      ? `${sessions.length} 个 agent 正在运行`
+      : "暂无运行中的 agent";
 
   return (
     <div className="min-h-screen bg-transparent p-3 text-[var(--text-primary)]">
@@ -129,38 +127,23 @@ export default function App() {
         </div>
 
         <div className="flex-1 space-y-3 overflow-y-auto px-3 py-3">
-          {permissionRequest ? (
-            <PermissionCard
-              busy={decisionBusy}
-              onApprove={() => {
-                setDecisionBusy(true);
-                void approvePermission(permissionRequest.requestId).finally(() => {
-                  setDecisionBusy(false);
-                });
-              }}
-              onDeny={() => {
-                setDecisionBusy(true);
-                void denyPermission(permissionRequest.requestId, "user rejected").finally(() => {
-                  setDecisionBusy(false);
-                });
-              }}
-              permission={permissionRequest}
-            />
-          ) : hasAttention ? (
+          {hasAttention || permissionRequest ? (
             <div className="rounded-[24px] border border-[var(--accent)]/20 bg-white/80 p-4">
               <div className="flex items-center gap-3">
-                {sessions[0] ? (
+                {attentionSession ? (
                   <AgentAvatar
                     highlighted
                     size="sm"
-                    source={sessions[0].source}
-                    status={sessions[0].status}
+                    source={attentionSession.source}
+                    status={attentionSession.status}
                   />
                 ) : null}
-                <div className="text-sm font-semibold">需要你返回终端</div>
+                <div className="text-sm font-semibold">
+                  {attentionSession?.statusDetail ?? "需要你返回终端"}
+                </div>
               </div>
               <div className="mt-2 text-sm leading-6 text-[var(--text-secondary)]">
-                当前 agent 发出了 ask-user / attention 事件。菜单栏会保持提醒态，但具体回答仍需回到终端完成。
+                AgentIsland 只负责提醒当前发生了什么事件，实际处理请回到 Claude 终端完成。
               </div>
             </div>
           ) : null}

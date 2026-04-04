@@ -6,7 +6,6 @@ use std::path::PathBuf;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use uuid::Uuid;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -139,7 +138,7 @@ impl SessionStore {
             .collect()
     }
 
-    pub fn apply_event(&mut self, event: &AgentEvent) -> Option<PermissionRequestView> {
+    pub fn apply_event(&mut self, event: &AgentEvent) {
         let now = event.timestamp.unwrap_or_else(Utc::now);
         let session_id = self.resolve_session_id(event);
         let session = self.sessions.entry(session_id.clone()).or_insert_with(|| SessionRecord {
@@ -196,19 +195,27 @@ impl SessionStore {
             "session_start" | "SessionStart" => {
                 session.status = "running".into();
                 session.status_detail = "session started".into();
+                session.has_pending_permission = false;
             }
             "prompt_submit" | "UserPromptSubmit" | "beforeSubmitPrompt" => {
                 session.status = "thinking".into();
                 session.status_detail = "thinking".into();
+                session.has_pending_permission = false;
             }
             "tool_start" | "PreToolUse" => {
                 session.status = "tool".into();
-                let tool_name = event.payload.get("toolName").and_then(Value::as_str).unwrap_or("tool");
+                let tool_name = event
+                    .payload
+                    .get("toolName")
+                    .or_else(|| event.payload.get("tool_name"))
+                    .and_then(Value::as_str)
+                    .unwrap_or("tool");
                 session.status_detail = format!("using tool: {tool_name}");
             }
             "tool_end" | "PostToolUse" => {
                 session.status = "running".into();
                 session.status_detail = "running".into();
+                session.has_pending_permission = false;
             }
             "compact" | "PreCompact" => {
                 session.status = "compact".into();
@@ -227,9 +234,9 @@ impl SessionStore {
                 session.needs_user_attention = true;
             }
             "permission_request" | "PermissionRequest" => {
-                session.status = "permission".into();
+                session.status = "attention".into();
                 session.has_pending_permission = true;
-                session.status_detail = "permission requested".into();
+                session.needs_user_attention = true;
                 let tool_name = event
                     .payload
                     .get("toolName")
@@ -246,35 +253,13 @@ impl SessionStore {
                     .or_else(|| event.payload.get("toolInputSummary").and_then(Value::as_str))
                     .unwrap_or("等待审批")
                     .to_string();
-                let request_id = event
-                    .payload
-                    .get("requestId")
-                    .or_else(|| event.payload.get("request_id"))
-                    .and_then(Value::as_str)
-                    .map(ToOwned::to_owned)
-                    .unwrap_or_else(|| Uuid::new_v4().to_string());
-                let raw_args_preview = event
-                    .payload
-                    .get("toolArgs")
-                    .or_else(|| event.payload.get("tool_args"))
-                    .or_else(|| event.payload.get("toolInput"))
-                    .or_else(|| event.payload.get("tool_input"))
-                    .map(|value| serde_json::to_string_pretty(value).unwrap_or_default());
-
-                return Some(PermissionRequestView {
-                    request_id,
-                    session_id: session.id.clone(),
-                    source: session.source.clone(),
-                    tool_name,
-                    summary,
-                    raw_args_preview,
-                    created_at: now,
-                });
+                session.status_detail = format!("PermissionRequest · {tool_name} · {summary}");
             }
             "permission_resolved" => {
                 session.has_pending_permission = false;
                 session.status = "running".into();
                 session.status_detail = "permission resolved".into();
+                session.needs_user_attention = false;
             }
             "subagent_start" | "SubagentStart" => {
                 session.subagent_count += 1;
@@ -312,6 +297,7 @@ impl SessionStore {
                 session.status = "done".into();
                 session.status_detail = "done".into();
                 session.has_pending_permission = false;
+                session.needs_user_attention = false;
             }
             "error" => {
                 session.status = "error".into();
@@ -324,8 +310,6 @@ impl SessionStore {
             }
             _ => {}
         }
-
-        None
     }
 
     fn resolve_session_id(&self, event: &AgentEvent) -> String {
@@ -379,14 +363,6 @@ impl SessionStore {
             )
         });
         sessions
-    }
-
-    pub fn mark_permission_resolved(&mut self, session_id: &str, decision: &str) {
-        if let Some(session) = self.sessions.get_mut(session_id) {
-            session.has_pending_permission = false;
-            session.status = "running".into();
-            session.status_detail = format!("permission {decision}");
-        }
     }
 }
 

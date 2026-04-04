@@ -1,7 +1,6 @@
 mod inject;
 mod ipc;
 mod notify;
-mod permission;
 mod session;
 mod settings;
 
@@ -14,7 +13,6 @@ use inject::{
 };
 use ipc::start_ipc_server;
 use notify::maybe_notify;
-use permission::{PermissionDecision, PermissionStore};
 use session::{AppStateSnapshot, InstallStatusItem, LogEntry, SessionStore};
 use settings::{apply_launch_at_login, load_preferences, save_preferences, UserPreferences};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconEvent};
@@ -44,7 +42,6 @@ enum MenuBarState {
 
 pub struct AppServices {
     sessions: Mutex<SessionStore>,
-    permissions: Mutex<PermissionStore>,
     preferences: Mutex<UserPreferences>,
     app_data_dir: PathBuf,
     tray_anchor: Mutex<Option<TrayAnchor>>,
@@ -53,14 +50,13 @@ pub struct AppServices {
 impl AppServices {
     fn snapshot(&self) -> AppStateSnapshot {
         let sessions = self.sessions.lock().unwrap().snapshot();
-        let permission_request = self.permissions.lock().unwrap().current_request();
         let preferences = self.preferences.lock().unwrap().clone();
         let logs = self.sessions.lock().unwrap().recent_logs(preferences.log_limit);
         let install_status = install_status();
 
         AppStateSnapshot {
             sessions,
-            permission_request,
+            permission_request: None,
             install_status,
             preferences,
             logs,
@@ -86,7 +82,7 @@ fn derive_menu_bar_state(snapshot: &AppStateSnapshot) -> MenuBarState {
 
 fn tray_title_for(state: MenuBarState, phase: usize, session_count: usize) -> Option<String> {
     match state {
-        MenuBarState::Idle => None,
+        MenuBarState::Idle => Some(String::new()),
         MenuBarState::Running => {
             let frames = [" ·🏇", " 🏇·", " ᯓ🏇", " 🏇ᯓ"];
             let frame = frames[phase % frames.len()];
@@ -126,49 +122,6 @@ fn emit_state(app: &tauri::AppHandle, services: &AppServices) -> tauri::Result<(
 #[tauri::command]
 fn get_app_state(state: tauri::State<'_, Arc<AppServices>>) -> AppStateSnapshot {
     state.snapshot()
-}
-
-#[tauri::command]
-fn approve_permission(
-    request_id: String,
-    app: tauri::AppHandle,
-    state: tauri::State<'_, Arc<AppServices>>,
-) -> Result<(), String> {
-    let decision = PermissionDecision {
-        decision: "approve".into(),
-        reason: None,
-    };
-
-    state
-        .permissions
-        .lock()
-        .unwrap()
-        .resolve(&request_id, decision)
-        .map_err(|error| error.to_string())?;
-
-    emit_state(&app, &state).map_err(|error| error.to_string())
-}
-
-#[tauri::command]
-fn deny_permission(
-    request_id: String,
-    reason: String,
-    app: tauri::AppHandle,
-    state: tauri::State<'_, Arc<AppServices>>,
-) -> Result<(), String> {
-    let decision = PermissionDecision {
-        decision: "deny".into(),
-        reason: Some(reason),
-    };
-
-    state
-        .permissions
-        .lock()
-        .unwrap()
-        .resolve(&request_id, decision)
-        .map_err(|error| error.to_string())?;
-
-    emit_state(&app, &state).map_err(|error| error.to_string())
 }
 
 #[tauri::command]
@@ -356,7 +309,6 @@ pub fn run() {
             let preferences = load_preferences(&app_data_dir).unwrap_or_default();
             let services = Arc::new(AppServices {
                 sessions: Mutex::new(SessionStore::new(app_data_dir.join("events.jsonl"))),
-                permissions: Mutex::new(PermissionStore::new()),
                 preferences: Mutex::new(preferences.clone()),
                 app_data_dir: app_data_dir.clone(),
                 tray_anchor: Mutex::new(None),
@@ -403,8 +355,6 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             get_app_state,
-            approve_permission,
-            deny_permission,
             open_settings_window,
             get_install_status,
             inject_agent_hooks,
@@ -421,7 +371,7 @@ pub(crate) fn on_event_received(
     app: &tauri::AppHandle,
     services: &Arc<AppServices>,
     event: session::AgentEvent,
-) -> Result<Option<PermissionDecision>, String> {
+) -> Result<(), String> {
     let mut sessions = services.sessions.lock().unwrap();
     let log_entry = LogEntry {
         id: Uuid::new_v4().to_string(),
@@ -434,40 +384,13 @@ pub(crate) fn on_event_received(
 
     sessions.push_log(log_entry);
 
-    let permission_request = sessions.apply_event(&event);
+    sessions.apply_event(&event);
 
     drop(sessions);
 
-    if let Some(request) = permission_request {
-        services
-            .permissions
-            .lock()
-            .unwrap()
-            .register(request.clone())
-            .map_err(|error| error.to_string())?;
-        maybe_notify(app, services, &event);
-        emit_state(app, services).map_err(|error| error.to_string())?;
-        let receiver = services
-            .permissions
-            .lock()
-            .unwrap()
-            .receiver_for(&request.request_id)
-            .map_err(|error| error.to_string())?;
-        let resolved =
-            PermissionStore::wait_for_resolution(receiver).map_err(|error| error.to_string())?;
-        services.permissions.lock().unwrap().remove(&request.request_id);
-        services
-            .sessions
-            .lock()
-            .unwrap()
-            .mark_permission_resolved(&request.session_id, &resolved.decision);
-        emit_state(app, services).map_err(|error| error.to_string())?;
-        return Ok(Some(resolved));
-    }
-
     maybe_notify(app, services, &event);
     emit_state(app, services).map_err(|error| error.to_string())?;
-    Ok(None)
+    Ok(())
 }
 
 pub fn app_data_dir_for_tests() -> PathBuf {

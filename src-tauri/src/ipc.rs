@@ -2,8 +2,8 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 
-use crate::permission::PermissionDecision;
 use crate::session::AgentEvent;
 use crate::{on_event_received, AppServices};
 
@@ -16,7 +16,7 @@ struct IpcRequest {
 #[serde(rename_all = "camelCase")]
 struct IpcResponse {
     ok: bool,
-    decision: Option<PermissionDecision>,
+    decision: Option<Value>,
     error: Option<String>,
 }
 
@@ -63,9 +63,9 @@ pub fn start_ipc_server(
                 let request = serde_json::from_slice::<IpcRequest>(&buffer);
                 let response = match request {
                     Ok(payload) => match on_event_received(&app, &services, payload.event) {
-                        Ok(decision) => IpcResponse {
+                        Ok(()) => IpcResponse {
                             ok: true,
-                            decision,
+                            decision: None,
                             error: None,
                         },
                         Err(error) => IpcResponse {
