@@ -474,7 +474,7 @@ pub fn run() {
             });
 
             tauri::tray::TrayIconBuilder::with_id(TRAY_ID)
-                .icon(include_image!("icons/icon.png"))
+                .icon(include_image!("icons/menu-bar-icon.png"))
                 .icon_as_template(true)
                 .show_menu_on_left_click(false)
                 .tooltip("AgentIsland")

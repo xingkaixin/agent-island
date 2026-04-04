@@ -3,7 +3,13 @@
 .agents
 
 
+# dist
 dist
 node_modules
 
+# rust
 src-tauri/target
+
+
+# skill
+skills-lock.json

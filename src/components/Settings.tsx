@@ -9,6 +9,7 @@ import {
 } from "../lib/tauri";
 import { useSessionStore } from "../store/sessions";
 import type { AgentSource, InstallStatusItem, UserPreferences } from "../types/agent";
+import AgentAvatar, { agentSourceLabel } from "./AgentAvatar";
 
 const agents: AgentSource[] = ["claude", "codex", "cursor"];
 
@@ -69,16 +70,26 @@ export default function Settings() {
                     className="rounded-2xl border border-[var(--line)] bg-[#fffaf4] p-4"
                   >
                     <div className="flex items-center justify-between gap-3">
-                      <div>
-                        <div className="text-base font-semibold capitalize">{agent}</div>
-                        <div className="text-xs text-[var(--text-secondary)]">
-                          {item?.path}
+                      <div className="flex min-w-0 items-center gap-3">
+                        <AgentAvatar size="sm" source={agent} />
+                        <div className="min-w-0">
+                          <div className="text-base font-semibold">
+                            {agentSourceLabel(agent)}
+                          </div>
+                          <div className="truncate text-xs text-[var(--text-secondary)]">
+                            {item?.path}
+                          </div>
                         </div>
                       </div>
                       <div className="rounded-full bg-black/5 px-3 py-1 text-xs">
                         {item?.injected ? "已注入" : item?.exists ? "未注入" : "文件不存在"}
                       </div>
                     </div>
+                    {item?.agent === "cursor" ? (
+                      <div className="mt-3 text-xs leading-5 text-[var(--text-secondary)]">
+                        Cursor hook 事件已经会写入应用日志；菜单只展示活跃会话，已结束或闲置超时的会话不会继续保留在菜单里。
+                      </div>
+                    ) : null}
                     <div className="mt-4 flex flex-wrap gap-2">
                       <button
                         className="rounded-full bg-[var(--bg-strong)] px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
@@ -154,6 +165,7 @@ export default function Settings() {
               <div className="mt-1 text-xs text-[var(--text-secondary)]">
                 应用内事件日志展示在这里；更底层的 hook 原始日志会写入
                 <span className="font-mono"> ~/.agentisland/logs/bridge.log</span>
+                。如果这里能看到 Cursor 日志但菜单没显示，通常表示会话已结束或已超出活跃窗口，而不是 hook 没收到。
               </div>
               <div className="mt-4 max-h-96 space-y-3 overflow-auto">
                 {logs.map((log) => (

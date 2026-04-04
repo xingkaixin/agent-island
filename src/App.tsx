@@ -114,7 +114,12 @@ export default function App() {
               ) : (
                 <CircleDot className="h-4 w-4 text-[var(--text-secondary)]" />
               )}
-              <span>AgentIsland</span>
+              <span className="flex items-center gap-2">
+                <span className="flex h-6 w-6 items-center justify-center overflow-hidden rounded-md border border-[var(--line)] bg-white/80">
+                  <img alt="AgentIsland" className="h-4 w-4 object-contain" src="/app-icon.png" />
+                </span>
+                <span>AgentIsland</span>
+              </span>
             </div>
             <div className="mt-1 text-sm text-[var(--text-secondary)]">
               {permissionRequest || hasAttention ? `需要你回到终端处理 · ${statusText}` : statusText}
