@@ -5,6 +5,7 @@ import type {
   AppStateSnapshot,
   InstallStatusItem,
   LogEntry,
+  TimelineLogEntry,
   UserPreferences,
 } from "../types/agent";
 
@@ -51,4 +52,8 @@ export async function setUserPreferences(preferences: UserPreferences) {
 
 export async function getRecentLogs(limit: number) {
   return invoke<LogEntry[]>("get_recent_logs", { limit });
+}
+
+export async function getLogTimeline(limit?: number) {
+  return invoke<TimelineLogEntry[]>("get_log_timeline", { limit });
 }

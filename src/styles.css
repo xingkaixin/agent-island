@@ -59,6 +59,11 @@ body {
   text-rendering: optimizeLegibility;
 }
 
+body[data-window="settings"] {
+  overflow-y: auto;
+  user-select: auto;
+}
+
 button {
   cursor: pointer;
 }
@@ -398,6 +403,59 @@ input {
   border: 1px solid rgba(94, 73, 48, 0.08);
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.76), rgba(255, 248, 242, 0.9));
+}
+
+.log-entry-button,
+.timeline-card,
+.timeline-preview-row {
+  border: 1px solid rgba(94, 73, 48, 0.08);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.76), rgba(255, 248, 242, 0.9));
+  transition:
+    transform 180ms var(--ease-out),
+    border-color 180ms var(--ease-out),
+    box-shadow 180ms var(--ease-out),
+    background-color 180ms var(--ease-out);
+}
+
+.log-entry-button:hover,
+.timeline-card:hover,
+.timeline-preview-row:hover {
+  transform: translateY(-1px);
+  border-color: rgba(94, 73, 48, 0.16);
+  box-shadow: 0 12px 28px rgba(76, 53, 26, 0.08);
+}
+
+.filter-chip,
+.agent-filter-chip {
+  border: 1px solid rgba(94, 73, 48, 0.1);
+  background: rgba(255, 255, 255, 0.74);
+  color: var(--text-secondary);
+  transition:
+    transform 180ms var(--ease-out),
+    background-color 180ms var(--ease-out),
+    border-color 180ms var(--ease-out),
+    color 180ms var(--ease-out);
+}
+
+.filter-chip:hover,
+.agent-filter-chip:hover {
+  transform: translateY(-1px);
+  border-color: rgba(94, 73, 48, 0.16);
+  color: var(--text-primary);
+}
+
+.filter-chip[data-active="true"],
+.agent-filter-chip[data-active="true"] {
+  border-color: rgba(217, 128, 47, 0.2);
+  background: rgba(255, 244, 232, 0.9);
+  color: var(--accent-strong);
+}
+
+.agent-filter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
 }
 
 .log-pre {

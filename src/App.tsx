@@ -70,6 +70,13 @@ export default function App() {
     };
   }, [replaceState]);
 
+  useEffect(() => {
+    document.body.dataset.window = windowLabel;
+    return () => {
+      delete document.body.dataset.window;
+    };
+  }, [windowLabel]);
+
   const hasAttention = useMemo(
     () => sessions.some((session) => session.needsUserAttention),
     [sessions],

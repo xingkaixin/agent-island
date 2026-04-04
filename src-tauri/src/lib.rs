@@ -13,7 +13,7 @@ use inject::{
 };
 use ipc::start_ipc_server;
 use notify::maybe_notify;
-use session::{AppStateSnapshot, InstallStatusItem, LogEntry, SessionStore};
+use session::{AppStateSnapshot, InstallStatusItem, LogEntry, SessionStore, TimelineLogEntry};
 use settings::{apply_launch_at_login, load_preferences, save_preferences, UserPreferences};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconEvent};
 use tauri::{
@@ -51,6 +51,7 @@ pub struct AppServices {
     sessions: Mutex<SessionStore>,
     preferences: Mutex<UserPreferences>,
     app_data_dir: PathBuf,
+    bridge_log_path: PathBuf,
     tray_anchor: Mutex<Option<TrayAnchor>>,
 }
 
@@ -317,6 +318,18 @@ fn get_recent_logs(limit: usize, state: tauri::State<'_, Arc<AppServices>>) -> V
     state.sessions.lock().unwrap().recent_logs(limit)
 }
 
+#[tauri::command]
+fn get_log_timeline(
+    limit: Option<usize>,
+    state: tauri::State<'_, Arc<AppServices>>,
+) -> Vec<TimelineLogEntry> {
+    state
+        .sessions
+        .lock()
+        .unwrap()
+        .log_timeline(limit.unwrap_or(1000), &state.bridge_log_path)
+}
+
 fn ensure_popover_window<R: Runtime>(window: &WebviewWindow<R>) {
     let _ = window.set_always_on_top(true);
     let _ = window.set_skip_taskbar(true);
@@ -450,6 +463,7 @@ pub fn run() {
                 sessions: Mutex::new(SessionStore::new(app_data_dir.join("events.jsonl"))),
                 preferences: Mutex::new(preferences.clone()),
                 app_data_dir: app_data_dir.clone(),
+                bridge_log_path: bridge_log_path(),
                 tray_anchor: Mutex::new(None),
             });
 
@@ -500,7 +514,8 @@ pub fn run() {
             remove_agent_hooks,
             restore_agent_backup,
             set_user_preferences,
-            get_recent_logs
+            get_recent_logs,
+            get_log_timeline
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
@@ -534,4 +549,13 @@ pub(crate) fn on_event_received(
 
 pub fn app_data_dir_for_tests() -> PathBuf {
     std::env::temp_dir().join("agent-island-tests")
+}
+
+fn bridge_log_path() -> PathBuf {
+    std::env::var("HOME")
+        .map(PathBuf::from)
+        .unwrap_or_else(|_| PathBuf::from("/tmp"))
+        .join(".agentisland")
+        .join("logs")
+        .join("bridge.log")
 }

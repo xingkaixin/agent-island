@@ -1,6 +1,6 @@
 use std::collections::HashMap;
-use std::fs::OpenOptions;
-use std::io::Write;
+use std::fs::{File, OpenOptions};
+use std::io::{BufRead, BufReader, Write};
 use std::path::PathBuf;
 
 use chrono::{DateTime, Utc};
@@ -66,6 +66,19 @@ pub struct LogEntry {
     pub session_id: Option<String>,
     pub kind: String,
     pub created_at: DateTime<Utc>,
+    pub raw: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TimelineLogEntry {
+    pub id: String,
+    pub source: String,
+    pub session_id: Option<String>,
+    pub kind: String,
+    pub created_at: DateTime<Utc>,
+    pub channel: String,
+    pub stage: Option<String>,
     pub raw: String,
 }
 
@@ -145,6 +158,14 @@ impl SessionStore {
             .collect()
     }
 
+    pub fn log_timeline(&self, limit: usize, bridge_log_path: &PathBuf) -> Vec<TimelineLogEntry> {
+        let mut entries = read_event_log_entries(&self.log_path);
+        entries.extend(read_bridge_log_entries(bridge_log_path));
+        entries.sort_by(|left, right| right.created_at.cmp(&left.created_at));
+        entries.truncate(limit);
+        entries
+    }
+
     pub fn apply_event(&mut self, event: &AgentEvent) {
         let now = event.timestamp.unwrap_or_else(Utc::now);
         let session_id = self.resolve_session_id(event);
@@ -202,13 +223,13 @@ impl SessionStore {
 
         match event.kind.as_str() {
             "session_start" | "SessionStart" => {
-                session.status = "running".into();
-                session.status_detail = "session started".into();
+                session.status = session_start_status(event.source.as_str()).into();
+                session.status_detail = session_start_detail(event.source.as_str()).into();
                 session.has_pending_permission = false;
             }
             "prompt_submit" | "UserPromptSubmit" | "beforeSubmitPrompt" => {
-                session.status = "thinking".into();
-                session.status_detail = "thinking".into();
+                session.status = prompt_submit_status(event.source.as_str()).into();
+                session.status_detail = prompt_submit_detail(event.source.as_str()).into();
                 session.has_pending_permission = false;
             }
             "tool_start" | "PreToolUse" => {
@@ -531,6 +552,210 @@ fn is_expired_session(session: &SessionRecord, now: DateTime<Utc>) -> bool {
     }
 
     session.source != "claude"
-        && matches!(session.status.as_str(), "idle" | "thinking" | "running")
+        && matches!(session.status.as_str(), "idle")
         && (now - session.last_event_at).num_milliseconds() > SESSION_IDLE_TIMEOUT_MS
+}
+
+fn session_start_status(source: &str) -> &'static str {
+    match source {
+        "codex" | "cursor" => "idle",
+        _ => "running",
+    }
+}
+
+fn session_start_detail(source: &str) -> &'static str {
+    match source {
+        "codex" | "cursor" => "idle",
+        _ => "session started",
+    }
+}
+
+fn prompt_submit_status(source: &str) -> &'static str {
+    match source {
+        "codex" | "cursor" => "running",
+        _ => "thinking",
+    }
+}
+
+fn prompt_submit_detail(source: &str) -> &'static str {
+    match source {
+        "codex" | "cursor" => "running",
+        _ => "thinking",
+    }
+}
+
+fn read_event_log_entries(path: &PathBuf) -> Vec<TimelineLogEntry> {
+    read_json_lines(path, parse_event_log_entry)
+}
+
+fn read_bridge_log_entries(path: &PathBuf) -> Vec<TimelineLogEntry> {
+    read_json_lines(path, parse_bridge_log_entry)
+}
+
+fn read_json_lines<T>(
+    path: &PathBuf,
+    parser: impl Fn(usize, &str) -> Option<T>,
+) -> Vec<T> {
+    let Ok(file) = File::open(path) else {
+        return Vec::new();
+    };
+    BufReader::new(file)
+        .lines()
+        .enumerate()
+        .filter_map(|(index, line)| line.ok().and_then(|value| parser(index, &value)))
+        .collect()
+}
+
+fn parse_event_log_entry(_index: usize, line: &str) -> Option<TimelineLogEntry> {
+    let entry = serde_json::from_str::<LogEntry>(line).ok()?;
+    Some(TimelineLogEntry {
+        id: entry.id,
+        source: entry.source,
+        session_id: entry.session_id,
+        kind: entry.kind,
+        created_at: entry.created_at,
+        channel: "event".into(),
+        stage: None,
+        raw: entry.raw,
+    })
+}
+
+fn parse_bridge_log_entry(index: usize, line: &str) -> Option<TimelineLogEntry> {
+    let value = serde_json::from_str::<Value>(line).ok()?;
+    let created_at = value
+        .get("timestamp")
+        .and_then(Value::as_str)
+        .and_then(parse_timestamp)?;
+    let stage = value.get("stage").and_then(Value::as_str)?.to_string();
+    let payload = value.get("payload")?;
+    let source = payload
+        .get("event")
+        .and_then(|event| event.get("source"))
+        .and_then(Value::as_str)
+        .or_else(|| {
+            payload
+                .get("argv")
+                .and_then(Value::as_array)
+                .and_then(|argv| {
+                    argv.windows(2).find_map(|window| {
+                        let flag = window.first()?.as_str()?;
+                        let next = window.get(1)?.as_str()?;
+                        (flag == "--source").then_some(next)
+                    })
+                })
+        })
+        .unwrap_or("unknown")
+        .to_string();
+    let session_id = payload
+        .get("event")
+        .and_then(|event| event.get("sessionId"))
+        .and_then(Value::as_str)
+        .map(ToOwned::to_owned);
+    let kind = payload
+        .get("event")
+        .and_then(|event| event.get("kind"))
+        .and_then(Value::as_str)
+        .unwrap_or(stage.as_str())
+        .to_string();
+
+    Some(TimelineLogEntry {
+        id: format!("bridge-{index}-{stage}"),
+        source,
+        session_id,
+        kind,
+        created_at,
+        channel: "bridge".into(),
+        stage: Some(stage),
+        raw: serde_json::to_string_pretty(payload).unwrap_or_default(),
+    })
+}
+
+fn parse_timestamp(value: &str) -> Option<DateTime<Utc>> {
+    chrono::DateTime::parse_from_rfc3339(value)
+        .ok()
+        .map(|timestamp| timestamp.with_timezone(&Utc))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use chrono::Duration;
+    use serde_json::json;
+    use uuid::Uuid;
+
+    fn temp_path(name: &str) -> PathBuf {
+        std::env::temp_dir().join(format!("agent-island-{name}-{}.jsonl", Uuid::new_v4()))
+    }
+
+    fn event(source: &str, kind: &str, timestamp: DateTime<Utc>) -> AgentEvent {
+        AgentEvent {
+            source: source.into(),
+            session_id: format!("{source}-session"),
+            timestamp: Some(timestamp),
+            kind: kind.into(),
+            payload: json!({ "cwd": "/tmp/project" }),
+        }
+    }
+
+    #[test]
+    fn codex_prompt_submit_stays_running_until_stop() {
+        let log_path = temp_path("events");
+        let mut store = SessionStore::new(log_path);
+        let now = Utc::now();
+
+        store.apply_event(&event("codex", "SessionStart", now));
+        store.apply_event(&event("codex", "UserPromptSubmit", now + Duration::seconds(2)));
+
+        let sessions = store.snapshot();
+        assert_eq!(sessions.len(), 1);
+        assert_eq!(sessions[0].status, "running");
+        assert_eq!(sessions[0].status_detail, "running");
+    }
+
+    #[test]
+    fn only_idle_sessions_expire() {
+        let log_path = temp_path("events");
+        let mut store = SessionStore::new(log_path);
+        let now = Utc::now() - Duration::milliseconds(SESSION_IDLE_TIMEOUT_MS + 1_000);
+
+        store.apply_event(&event("codex", "SessionStart", now));
+        assert!(store.snapshot().is_empty());
+
+        store.apply_event(&event("cursor", "beforeSubmitPrompt", Utc::now()));
+        let sessions = store.snapshot();
+        assert_eq!(sessions.len(), 1);
+        assert_eq!(sessions[0].status, "running");
+    }
+
+    #[test]
+    fn log_timeline_merges_event_and_bridge_logs() {
+        let event_log_path = temp_path("events");
+        let bridge_log_path = temp_path("bridge");
+        let mut store = SessionStore::new(event_log_path.clone());
+        store.push_log(LogEntry {
+            id: "event-1".into(),
+            source: "codex".into(),
+            session_id: Some("session-1".into()),
+            kind: "UserPromptSubmit".into(),
+            created_at: parse_timestamp("2026-04-04T08:34:09.274657+00:00").unwrap(),
+            raw: "{\"hook_event_name\":\"UserPromptSubmit\"}".into(),
+        });
+
+        std::fs::write(
+            &bridge_log_path,
+            concat!(
+                "{\"timestamp\":\"2026-04-04T08:34:09.276887+00:00\",\"stage\":\"response\",\"payload\":{\"ok\":true}}\n",
+                "{\"timestamp\":\"2026-04-04T08:34:09.241648+00:00\",\"stage\":\"incoming\",\"payload\":{\"argv\":[\"--source\",\"codex\"],\"event\":{\"source\":\"codex\",\"sessionId\":\"session-1\",\"kind\":\"SessionStart\"}}}\n"
+            ),
+        )
+        .unwrap();
+
+        let timeline = store.log_timeline(10, &bridge_log_path);
+
+        assert_eq!(timeline.len(), 3);
+        assert_eq!(timeline[0].channel, "bridge");
+        assert_eq!(timeline[0].stage.as_deref(), Some("response"));
+        assert_eq!(timeline[1].channel, "event");
+        assert_eq!(timeline[2].kind, "SessionStart");
+    }
 }

@@ -66,6 +66,17 @@ export interface LogEntry {
   raw: string;
 }
 
+export interface TimelineLogEntry {
+  id: string;
+  source: AgentSource;
+  sessionId?: string | null;
+  kind: string;
+  createdAt: string;
+  channel: "event" | "bridge";
+  stage?: string | null;
+  raw: string;
+}
+
 export interface AppStateSnapshot {
   sessions: SessionView[];
   permissionRequest?: PermissionRequestView | null;
