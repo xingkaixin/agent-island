@@ -1,5 +1,6 @@
 mod inject;
 mod ipc;
+mod launcher;
 mod notify;
 mod session;
 mod settings;
@@ -29,6 +30,7 @@ const POPOVER_HEIGHT: f64 = 520.0;
 const POPUP_TOP_MARGIN: f64 = 6.0;
 const LOG_RETENTION_DAYS: i64 = 3;
 const LOG_PRUNE_INTERVAL_SECS: u64 = 60 * 60;
+const SESSION_REFRESH_INTERVAL_MS: u64 = 2_000;
 
 #[derive(Clone, Copy)]
 struct TrayAnchor {
@@ -79,13 +81,10 @@ pub struct AppServices {
 
 impl AppServices {
     fn snapshot(&self) -> AppStateSnapshot {
-        let sessions = self.sessions.lock().unwrap().snapshot();
         let preferences = self.preferences.lock().unwrap().clone();
-        let logs = self
-            .sessions
-            .lock()
-            .unwrap()
-            .recent_logs(preferences.log_limit);
+        let mut session_store = self.sessions.lock().unwrap();
+        let sessions = session_store.snapshot();
+        let logs = session_store.recent_logs(preferences.log_limit);
         let install_status = install_status();
 
         AppStateSnapshot {
@@ -230,6 +229,7 @@ mod tests {
             has_pending_permission,
             needs_user_attention,
             subagent_count: 0,
+            launcher: None,
         }
     }
 
@@ -519,6 +519,15 @@ fn spawn_log_prune_task(app: tauri::AppHandle, services: Arc<AppServices>) {
     });
 }
 
+fn spawn_session_refresh_task(app: tauri::AppHandle, services: Arc<AppServices>) {
+    tauri::async_runtime::spawn(async move {
+        loop {
+            tokio::time::sleep(std::time::Duration::from_millis(SESSION_REFRESH_INTERVAL_MS)).await;
+            let _ = emit_state(&app, &services);
+        }
+    });
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -538,7 +547,10 @@ pub fn run() {
 
             let preferences = load_preferences(&app_data_dir).unwrap_or_default();
             let services = Arc::new(AppServices {
-                sessions: Mutex::new(SessionStore::new(app_data_dir.join("events.jsonl"))),
+                sessions: Mutex::new(SessionStore::new(
+                    app_data_dir.join("events.jsonl"),
+                    app_data_dir.join("launcher-icons"),
+                )),
                 preferences: Mutex::new(preferences.clone()),
                 app_data_dir: app_data_dir.clone(),
                 bridge_log_path: bridge_log_path(),
@@ -583,7 +595,8 @@ pub fn run() {
             emit_state(&app_handle, &services).ok();
             start_ipc_server(app_handle.clone(), services.clone())?;
             spawn_tray_animation(app_handle.clone(), services.clone());
-            spawn_log_prune_task(app_handle, services);
+            spawn_log_prune_task(app_handle.clone(), services.clone());
+            spawn_session_refresh_task(app_handle, services);
 
             Ok(())
         })

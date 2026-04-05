@@ -7,6 +7,8 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
+use crate::launcher::{ClaudeSessionResolver, LauncherView};
+
 const SESSION_IDLE_TIMEOUT_MS: i64 = 30_000;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -46,6 +48,7 @@ pub struct SessionView {
     pub has_pending_permission: bool,
     pub needs_user_attention: bool,
     pub subagent_count: u32,
+    pub launcher: Option<LauncherView>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -108,20 +111,23 @@ struct SessionRecord {
     has_pending_permission: bool,
     needs_user_attention: bool,
     subagent_count: u32,
+    launcher: Option<LauncherView>,
 }
 
 pub struct SessionStore {
     sessions: HashMap<String, SessionRecord>,
     logs: Vec<LogEntry>,
     log_path: PathBuf,
+    claude_session_resolver: ClaudeSessionResolver,
 }
 
 impl SessionStore {
-    pub fn new(log_path: PathBuf) -> Self {
+    pub fn new(log_path: PathBuf, icon_cache_dir: PathBuf) -> Self {
         Self {
             sessions: HashMap::new(),
             logs: Vec::new(),
             log_path,
+            claude_session_resolver: ClaudeSessionResolver::new(icon_cache_dir),
         }
     }
 
@@ -221,6 +227,7 @@ impl SessionStore {
                 has_pending_permission: false,
                 needs_user_attention: false,
                 subagent_count: 0,
+                launcher: None,
             });
         session.id = session_id;
         session.last_event_at = now;
@@ -394,7 +401,8 @@ impl SessionStore {
         event.session_id.clone()
     }
 
-    pub fn snapshot(&self) -> Vec<SessionView> {
+    pub fn snapshot(&mut self) -> Vec<SessionView> {
+        self.refresh_claude_sessions();
         let now = Utc::now();
         let mut sessions = self
             .sessions
@@ -416,6 +424,7 @@ impl SessionStore {
                 has_pending_permission: session.has_pending_permission,
                 needs_user_attention: session.needs_user_attention,
                 subagent_count: session.subagent_count,
+                launcher: session.launcher,
             })
             .collect::<Vec<_>>();
 
@@ -427,6 +436,24 @@ impl SessionStore {
             )
         });
         sessions
+    }
+
+    fn refresh_claude_sessions(&mut self) {
+        let Some(launchers) = self.claude_session_resolver.resolve() else {
+            return;
+        };
+        self.sessions.retain(|session_id, session| {
+            if session.source != "claude" {
+                return true;
+            }
+
+            let Some(launcher) = launchers.get(session_id) else {
+                return false;
+            };
+
+            session.launcher = Some(launcher.clone());
+            true
+        });
     }
 }
 
@@ -772,7 +799,7 @@ mod tests {
     #[test]
     fn codex_prompt_submit_stays_running_until_stop() {
         let log_path = temp_path("events");
-        let mut store = SessionStore::new(log_path);
+        let mut store = SessionStore::new(log_path, std::env::temp_dir());
         let now = Utc::now();
 
         store.apply_event(&event("codex", "SessionStart", now));
@@ -787,7 +814,7 @@ mod tests {
     #[test]
     fn only_idle_sessions_expire() {
         let log_path = temp_path("events");
-        let mut store = SessionStore::new(log_path);
+        let mut store = SessionStore::new(log_path, std::env::temp_dir());
         let now = Utc::now() - Duration::milliseconds(SESSION_IDLE_TIMEOUT_MS + 1_000);
 
         store.apply_event(&event("codex", "SessionStart", now));
@@ -803,7 +830,7 @@ mod tests {
     fn log_timeline_merges_event_and_bridge_logs() {
         let event_log_path = temp_path("events");
         let bridge_log_path = temp_path("bridge");
-        let mut store = SessionStore::new(event_log_path.clone());
+        let mut store = SessionStore::new(event_log_path.clone(), std::env::temp_dir());
         store.push_log(LogEntry {
             id: "event-1".into(),
             source: "codex".into(),
@@ -836,7 +863,7 @@ mod tests {
         let event_log_path = temp_path("events-prune");
         let bridge_log_path = temp_path("bridge-prune");
         let cutoff = parse_timestamp("2026-04-05T00:00:00+00:00").unwrap();
-        let mut store = SessionStore::new(event_log_path.clone());
+        let mut store = SessionStore::new(event_log_path.clone(), std::env::temp_dir());
 
         store.push_log(LogEntry {
             id: "old-event".into(),

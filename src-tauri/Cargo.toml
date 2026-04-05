@@ -14,9 +14,10 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 tauri-build = { version = "2.0.1", features = [] }
 
 [dependencies]
+base64 = "0.22.1"
 chrono = { version = "0.4.40", features = ["serde"] }
 objc2 = "0.6.3"
-objc2-app-kit = { version = "0.3.2", features = ["NSWindow", "NSScreen", "NSGraphics", "NSView"] }
+objc2-app-kit = { version = "0.3.2", features = ["NSWindow", "NSScreen", "NSGraphics", "NSView", "NSImage", "NSWorkspace", "NSBitmapImageRep", "NSImageRep"] }
 objc2-foundation = { version = "0.3.2", features = ["NSGeometry", "NSThread"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"

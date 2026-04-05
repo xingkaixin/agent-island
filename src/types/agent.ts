@@ -19,6 +19,12 @@ export interface PermissionDecisionPayload {
   reason?: string | null;
 }
 
+export interface LauncherView {
+  name: string;
+  iconDataUrl?: string | null;
+  bundlePath?: string | null;
+}
+
 export interface PermissionRequestView {
   requestId: string;
   sessionId: string;
@@ -41,6 +47,7 @@ export interface SessionView {
   hasPendingPermission: boolean;
   needsUserAttention: boolean;
   subagentCount: number;
+  launcher?: LauncherView | null;
 }
 
 export interface InstallStatusItem {

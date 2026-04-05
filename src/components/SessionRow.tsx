@@ -1,6 +1,6 @@
 import clsx from "clsx";
 import type { SessionView } from "../types/agent";
-import AgentAvatar, { agentSourceLabel } from "./AgentAvatar";
+import AgentAvatar from "./AgentAvatar";
 
 function statusLabel(session: SessionView) {
   switch (session.status) {
@@ -42,13 +42,6 @@ function statusTone(session: SessionView) {
   return "active";
 }
 
-function formatDuration(durationMs: number) {
-  const totalSeconds = Math.max(0, Math.floor(durationMs / 1000));
-  const minutes = Math.floor(totalSeconds / 60);
-  const seconds = totalSeconds % 60;
-  return `${minutes}:${String(seconds).padStart(2, "0")}`;
-}
-
 function formatWorkspaceLabel(cwd?: string | null) {
   if (!cwd) {
     return "未提供路径";
@@ -63,8 +56,16 @@ function formatWorkspaceLabel(cwd?: string | null) {
   return segments.length > 0 ? segments[segments.length - 1] : cwd;
 }
 
+function launcherIconSrc(session: SessionView) {
+  if (!session.launcher?.iconDataUrl) {
+    return null;
+  }
+  return session.launcher.iconDataUrl;
+}
+
 export default function SessionRow({ session }: { session: SessionView }) {
   const tone = statusTone(session);
+  const iconSrc = launcherIconSrc(session);
 
   return (
     <div className="session-row session-row-accent flex items-center gap-3 rounded-xl px-3 py-2.5" data-tone={tone}>
@@ -75,9 +76,6 @@ export default function SessionRow({ session }: { session: SessionView }) {
       />
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
-          <span className="rounded-full bg-[var(--bg-muted)] px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--text-tertiary)]">
-            {agentSourceLabel(session.source)}
-          </span>
           <span
             className={clsx(
               "session-status-badge rounded-full px-2.5 py-1 text-[10px] font-semibold tracking-[0.08em]",
@@ -88,12 +86,18 @@ export default function SessionRow({ session }: { session: SessionView }) {
           </span>
         </div>
         <div className="session-path mt-2 truncate">{formatWorkspaceLabel(session.cwd)}</div>
-      </div>
-      <div className="shrink-0 text-right">
-        <div className="text-[10px] uppercase tracking-[0.14em] text-[var(--text-tertiary)]">Elapsed</div>
-        <div className="mt-1 font-mono text-sm text-[var(--text-secondary)]">
-          {formatDuration(session.durationMs)}
-        </div>
+        {session.source === "claude" && session.launcher?.name ? (
+          <div className="mt-2 flex items-center gap-2 text-xs text-[var(--text-secondary)]">
+            {iconSrc ? (
+              <img
+                alt={session.launcher.name}
+                className="h-4 w-4 shrink-0 rounded-[4px]"
+                src={iconSrc}
+              />
+            ) : null}
+            <span className="truncate">{session.launcher.name}</span>
+          </div>
+        ) : null}
       </div>
     </div>
   );
