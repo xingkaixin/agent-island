@@ -124,4 +124,14 @@ describe("LogCenter", () => {
       ),
     ).toBeInTheDocument();
   });
+
+  it("将返回设置和日志操作放在筛选工具栏内", () => {
+    renderLogCenter();
+
+    const toolbar = screen.getByLabelText("日志筛选工具栏");
+    expect(within(toolbar).getByText("日志筛选")).toBeInTheDocument();
+    expect(within(toolbar).getByRole("button", { name: "返回设置" })).toBeInTheDocument();
+    expect(within(toolbar).getByRole("button", { name: "清空日志" })).toBeInTheDocument();
+    expect(within(toolbar).getByRole("button", { name: "刷新" })).toBeInTheDocument();
+  });
 });

@@ -149,39 +149,8 @@ export default function LogCenter({
 
   return (
     <section className="settings-card log-center-shell rounded-[22px] p-5">
-      <div className="log-header flex flex-wrap items-center justify-end gap-2">
-        <div className="log-header-actions flex flex-wrap items-center">
-          <button
-            className="log-toolbar-btn secondary-button"
-            onClick={onBack}
-            type="button"
-          >
-            返回设置
-          </button>
-          <button
-            className="log-toolbar-btn log-toolbar-btn-danger ghost-button hook-ghost-btn disabled:opacity-50"
-            disabled={clearing || loading || !hasAnyLogs}
-            onClick={requestClearLogs}
-            title={!hasAnyLogs ? "当前没有可清理的日志" : undefined}
-            type="button"
-          >
-            <Trash2 className="h-3.5 w-3.5" aria-hidden />
-            {confirmingClear ? "等待确认" : "清空日志"}
-          </button>
-          <button
-            className="log-toolbar-icon-btn icon-button no-drag"
-            disabled={loading}
-            onClick={onRefresh}
-            type="button"
-          >
-            <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} aria-hidden />
-            <span className="sr-only">刷新</span>
-          </button>
-        </div>
-      </div>
-
       {!hasAnyLogs ? (
-        <div className="log-empty-note mt-3 rounded-lg border px-3 py-2 text-xs text-[var(--text-secondary)]">
+        <div className="log-empty-note mt-4 rounded-lg border px-3 py-2 text-xs text-[var(--text-secondary)]">
           当前没有可清理的日志。
         </div>
       ) : null}
@@ -228,16 +197,46 @@ export default function LogCenter({
         </div>
       ) : null}
 
-      <div className="log-toolbar mt-4 flex flex-col rounded-xl">
+      <div className="mt-4 flex flex-col gap-3" aria-label="日志筛选工具栏">
         <div className="log-toolbar-row flex flex-col gap-3">
-          <div className="flex items-center justify-between gap-3">
-            <span className="log-toolbar-label">日志筛选</span>
-            <div className="log-match-count text-[11px] text-[var(--text-secondary)]">
-              匹配{" "}
-              <span className="font-semibold tabular-nums text-[var(--text-primary)]">
-                {filteredEntries.length}
-              </span>{" "}
-              条
+          <div className="log-toolbar-top flex flex-wrap items-center justify-between gap-3">
+            <div className="log-toolbar-summary flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
+              <span className="log-toolbar-label">日志筛选</span>
+              <div className="log-match-count text-[11px] text-[var(--text-secondary)]">
+                匹配{" "}
+                <span className="font-semibold tabular-nums text-[var(--text-primary)]">
+                  {filteredEntries.length}
+                </span>{" "}
+                条
+              </div>
+            </div>
+            <div className="log-toolbar-actions flex flex-wrap items-center justify-end gap-2">
+              <button
+                className="log-toolbar-btn secondary-button"
+                onClick={onBack}
+                type="button"
+              >
+                返回设置
+              </button>
+              <button
+                className="log-toolbar-btn log-toolbar-btn-danger ghost-button hook-ghost-btn disabled:opacity-50"
+                disabled={clearing || loading || !hasAnyLogs}
+                onClick={requestClearLogs}
+                title={!hasAnyLogs ? "当前没有可清理的日志" : undefined}
+                type="button"
+              >
+                <Trash2 className="h-3.5 w-3.5" aria-hidden />
+                {confirmingClear ? "等待确认" : "清空日志"}
+              </button>
+              <button
+                className="log-toolbar-icon-btn icon-button no-drag"
+                disabled={loading}
+                onClick={onRefresh}
+                type="button"
+              >
+                <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} aria-hidden />
+                <span className="sr-only">刷新</span>
+              </button>
             </div>
           </div>
           <div className="log-filter-stack flex min-w-0 flex-1 flex-col gap-3">

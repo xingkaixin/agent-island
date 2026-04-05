@@ -371,11 +371,24 @@ input {
     opacity 160ms var(--ease-out);
 }
 
+.settings-action-btn:disabled {
+  cursor: default;
+  transform: none;
+  opacity: 1;
+  box-shadow: none;
+}
+
 .hook-primary-btn {
   border: 1px solid rgba(20, 25, 40, 0.16);
   background: linear-gradient(180deg, rgba(27, 33, 49, 0.94), rgba(16, 20, 34, 0.98));
   color: #f6f8fe;
   box-shadow: 0 3px 8px rgba(20, 25, 40, 0.1);
+}
+
+.hook-primary-btn:disabled {
+  border-color: rgba(80, 100, 160, 0.14);
+  background: linear-gradient(180deg, rgba(150, 156, 168, 0.96), rgba(132, 138, 151, 0.98));
+  color: rgba(255, 255, 255, 0.96);
 }
 
 .hook-primary-btn:hover:not(:disabled) {
@@ -387,6 +400,12 @@ input {
   border: 1px solid rgba(80, 100, 160, 0.1);
   background: rgba(255, 255, 255, 0.78);
   color: #2a3347;
+}
+
+.hook-secondary-btn:disabled {
+  border-color: rgba(80, 100, 160, 0.1);
+  background: rgba(244, 246, 251, 0.96);
+  color: rgba(42, 51, 71, 0.42);
 }
 
 .hook-secondary-btn:hover:not(:disabled) {
@@ -425,18 +444,7 @@ input {
   background: linear-gradient(180deg, #ffffff 0%, #f7f9ff 100%);
 }
 
-.log-toolbar {
-  gap: 0.9rem;
-  border: 1px solid rgba(80, 100, 160, 0.08);
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(246, 249, 255, 0.96));
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.68),
-    0 10px 26px rgba(30, 50, 110, 0.05);
-  padding: 0.9rem;
-}
-
-.log-header-actions,
+.log-toolbar-actions,
 .log-confirm-actions {
   gap: 0.5rem;
 }
@@ -465,6 +473,18 @@ input {
 
 .log-toolbar-row {
   gap: 0.9rem;
+}
+
+.log-toolbar-top {
+  align-items: flex-start;
+}
+
+.log-toolbar-summary {
+  flex: 1 1 12rem;
+}
+
+.log-toolbar-actions {
+  flex: 0 1 auto;
 }
 
 .log-filter-stack {

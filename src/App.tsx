@@ -107,19 +107,7 @@ export default function App() {
     return <Settings />;
   }
 
-  const statusText = sessions.length === 0
-    ? "暂无活跃 agent"
-    : [
-        sessionSummary.running > 0 ? `${sessionSummary.running} 个运行中` : null,
-        sessionSummary.idle > 0 ? `${sessionSummary.idle} 个空闲中` : null,
-        sessionSummary.attention > 0 ? `${sessionSummary.attention} 个待处理` : null,
-      ]
-        .filter(Boolean)
-        .join(" · ");
-
-  const attentionText = permissionRequest || hasAttention
-    ? `需要你回到终端处理 · ${statusText}`
-    : statusText;
+  const attentionText = permissionRequest || hasAttention ? "需要你回到终端处理" : null;
 
   const enterMotion = reduceMotion
     ? {}
@@ -135,14 +123,20 @@ export default function App() {
         }`}
       >
         <div className="relative border-b border-[var(--line)] px-3 pb-3 pt-3">
-          <div className="flex items-start justify-between gap-3">
-            <div className="flex min-w-0 flex-1 items-start gap-2.5">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex min-w-0 flex-1 items-center gap-3">
               <span className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-[var(--line)] bg-white">
                 <img alt="AgentIsland" className="h-6 w-6 object-contain" src="/app-icon.png" />
               </span>
               <div className="min-w-0">
-                <div className="text-[0.95rem] font-semibold tracking-[-0.02em]">AgentIsland</div>
-                <div className="mt-0.5 text-[13px] leading-snug text-[var(--text-secondary)]">{attentionText}</div>
+                <div className="text-[1.2rem] font-semibold leading-none tracking-[-0.03em]">
+                  AgentIsland
+                </div>
+                {attentionText ? (
+                  <div className="mt-0.5 text-[13px] leading-snug text-[var(--text-secondary)]">
+                    {attentionText}
+                  </div>
+                ) : null}
               </div>
             </div>
             <div className="flex shrink-0 items-center gap-1">

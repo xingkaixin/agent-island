@@ -174,7 +174,7 @@ export default function Settings() {
 
                       <div className="settings-agent-actions mt-2.5 flex flex-wrap">
                         <button
-                          className="settings-action-btn hook-primary-btn inline-flex items-center disabled:opacity-50"
+                          className="settings-action-btn hook-primary-btn inline-flex items-center"
                           disabled={busy !== null || item?.injected === true}
                           onClick={() => runAgentAction("inject", injectAgentHooks, agent)}
                           type="button"
@@ -183,7 +183,7 @@ export default function Settings() {
                           注入
                         </button>
                         <button
-                          className="settings-action-btn hook-secondary-btn inline-flex items-center disabled:opacity-50"
+                          className="settings-action-btn hook-secondary-btn inline-flex items-center"
                           disabled={busy !== null || !item?.injected}
                           onClick={() => runAgentAction("remove", removeAgentHooks, agent)}
                           type="button"
