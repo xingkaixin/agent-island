@@ -225,32 +225,32 @@ export default function Settings() {
                         </p>
                       ) : null}
 
-                      <div className="mt-3 flex flex-wrap gap-1.5">
+                      <div className="settings-agent-actions mt-2.5 flex flex-wrap">
                         <button
-                          className="hook-primary-btn inline-flex items-center gap-1 rounded-md px-2.5 py-1.5 text-xs font-semibold disabled:opacity-50"
+                          className="settings-action-btn hook-primary-btn inline-flex items-center disabled:opacity-50"
                           disabled={busy !== null}
                           onClick={() => runAgentAction("inject", injectAgentHooks, agent)}
                           type="button"
                         >
-                          <Download className="h-3.5 w-3.5" aria-hidden />
+                          <Download className="h-3 w-3" aria-hidden />
                           注入
                         </button>
                         <button
-                          className="hook-secondary-btn inline-flex items-center gap-1 rounded-md px-2.5 py-1.5 text-xs font-semibold disabled:opacity-50"
+                          className="settings-action-btn hook-secondary-btn inline-flex items-center disabled:opacity-50"
                           disabled={busy !== null}
                           onClick={() => runAgentAction("remove", removeAgentHooks, agent)}
                           type="button"
                         >
-                          <Trash2 className="h-3.5 w-3.5" aria-hidden />
+                          <Trash2 className="h-3 w-3" aria-hidden />
                           移除
                         </button>
                         <button
-                          className="hook-secondary-btn inline-flex items-center gap-1 rounded-md px-2.5 py-1.5 text-xs font-semibold disabled:opacity-50"
+                          className="settings-action-btn hook-secondary-btn inline-flex items-center disabled:opacity-50"
                           disabled={busy !== null}
                           onClick={() => runAgentAction("restore", restoreAgentBackup, agent)}
                           type="button"
                         >
-                          <RotateCcw className="h-3.5 w-3.5" aria-hidden />
+                          <RotateCcw className="h-3 w-3" aria-hidden />
                           恢复
                         </button>
                       </div>
@@ -305,20 +305,20 @@ export default function Settings() {
                   <span className="text-[10px] text-[var(--text-tertiary)]">{timeline.length} 条</span>
                 </div>
                 <button
-                  className="log-link-row mt-3 flex w-full items-center justify-between gap-2 rounded-xl border border-[var(--line)] bg-white/80 px-3 py-2.5 text-left transition-colors hover:border-[var(--line-strong)]"
+                  className="settings-link-row log-link-row mt-3 flex w-full items-center justify-between gap-2 text-left"
                   onClick={() => setPage("logs")}
                   type="button"
                 >
                   <span className="flex items-center gap-2 min-w-0">
-                    <FileText className="h-4 w-4 shrink-0 text-[var(--accent-strong)]" aria-hidden />
+                    <FileText className="h-3.5 w-3.5 shrink-0 text-[var(--accent-strong)]" aria-hidden />
                     <span className="min-w-0">
-                      <span className="block text-sm font-semibold">查看全部日志</span>
+                      <span className="block text-[13px] font-semibold">查看全部日志</span>
                       <span className="block truncate text-[11px] text-[var(--text-secondary)]">
                         筛选、时段、清空
                       </span>
                     </span>
                   </span>
-                  <ChevronRight className="h-4 w-4 shrink-0 text-[var(--text-tertiary)]" aria-hidden />
+                  <ChevronRight className="h-3.5 w-3.5 shrink-0 text-[var(--text-tertiary)]" aria-hidden />
                 </button>
 
                 <div className="mt-3 flex flex-col gap-1.5">

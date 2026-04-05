@@ -183,7 +183,7 @@ export default function LogCenter({
 
   return (
     <section className="settings-card log-center-shell rounded-[22px] p-5">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+      <div className="log-header flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <div className="eyebrow">Log Center</div>
           <h2 className="mt-1 text-lg font-semibold tracking-[-0.02em]">日志</h2>
@@ -191,26 +191,26 @@ export default function LogCenter({
             Hook 与 bridge 合并时间线。点行展开原始内容；可按时间段缩小范围。
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="log-header-actions flex flex-wrap items-center">
           <button
-            className="secondary-button rounded-lg px-3 py-1.5 text-xs font-semibold"
+            className="log-toolbar-btn secondary-button"
             onClick={onBack}
             type="button"
           >
             返回设置
           </button>
           <button
-            className="ghost-button hook-ghost-btn rounded-lg px-3 py-1.5 text-xs font-semibold disabled:opacity-50"
+            className="log-toolbar-btn log-toolbar-btn-danger ghost-button hook-ghost-btn disabled:opacity-50"
             disabled={clearing || loading || !hasAnyLogs}
             onClick={requestClearLogs}
             title={!hasAnyLogs ? "当前没有可清理的日志" : undefined}
             type="button"
           >
-            <Trash2 className="mr-1 inline-block h-3.5 w-3.5 align-[-2px]" aria-hidden />
+            <Trash2 className="h-3.5 w-3.5" aria-hidden />
             {confirmingClear ? "等待确认" : "清空日志"}
           </button>
           <button
-            className="icon-button no-drag rounded-lg p-2"
+            className="log-toolbar-icon-btn icon-button no-drag"
             disabled={loading}
             onClick={onRefresh}
             type="button"
@@ -241,9 +241,9 @@ export default function LogCenter({
                 </p>
               ) : null}
             </div>
-            <div className="flex shrink-0 items-center gap-2">
+            <div className="log-confirm-actions flex shrink-0 items-center">
               <button
-                className="secondary-button rounded-lg px-3 py-1.5 text-xs font-semibold disabled:opacity-50"
+                className="log-toolbar-btn secondary-button disabled:opacity-50"
                 disabled={clearing}
                 onClick={cancelClearLogs}
                 type="button"
@@ -251,7 +251,7 @@ export default function LogCenter({
                 取消
               </button>
               <button
-                className="ghost-button rounded-lg px-3 py-1.5 text-xs font-semibold disabled:opacity-50"
+                className="log-toolbar-btn log-toolbar-btn-danger ghost-button disabled:opacity-50"
                 disabled={clearing}
                 onClick={() => void handleConfirmClearLogs()}
                 type="button"
@@ -269,95 +269,114 @@ export default function LogCenter({
         </div>
       ) : null}
 
-      <div className="log-toolbar mt-4 flex flex-col gap-3 rounded-xl border border-[var(--line)] bg-white p-3">
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-[var(--text-tertiary)]">视图</span>
-          {(
-            [
-              ["all", "全部"],
-              ["event", "Hook"],
-              ["bridge", "Bridge"],
-            ] as const
-          ).map(([value, label]) => (
-            <button
-              key={value}
-              className="filter-chip rounded-md px-2.5 py-1 text-[11px] font-semibold"
-              data-active={viewMode === value}
-              onClick={() => setViewMode(value)}
-              type="button"
-            >
-              {label}
-            </button>
-          ))}
-          <span className="mx-1 hidden h-4 w-px bg-[var(--line)] sm:inline-block" aria-hidden />
-          <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-[var(--text-tertiary)]">Agent</span>
-          <div className="flex flex-wrap gap-1">
-            {agents.map((source) => (
-              <button
-                key={source}
-                className="agent-filter-chip rounded-md px-2 py-1"
-                data-active={selectedSources.includes(source)}
-                onClick={() => toggleSource(source)}
-                type="button"
-              >
-                <AgentAvatar size="sm" source={source} />
-                <span className="text-[11px] font-semibold">{agentSourceLabel(source)}</span>
-              </button>
-            ))}
-          </div>
-        </div>
+      <div className="log-toolbar mt-4 flex flex-col rounded-xl">
+        <div className="log-toolbar-row flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
+          <div className="log-filter-stack flex min-w-0 flex-1 flex-col gap-3">
+            <div className="log-filter-group flex flex-wrap items-center">
+              <span className="log-toolbar-label">视图</span>
+              <div className="log-segmented-control" role="group" aria-label="视图筛选">
+                {(
+                  [
+                    ["all", "全部"],
+                    ["event", "Hook"],
+                    ["bridge", "Bridge"],
+                  ] as const
+                ).map(([value, label]) => (
+                  <button
+                    key={value}
+                    className="filter-chip log-segmented-chip"
+                    data-active={viewMode === value}
+                    onClick={() => setViewMode(value)}
+                    type="button"
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
 
-        <div className="flex flex-col gap-2 lg:flex-row lg:items-end lg:gap-3">
-          <div className="flex min-w-0 flex-1 flex-col gap-1">
-            <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-[var(--text-tertiary)]">
-              时间范围
-            </span>
-            <div className="flex flex-wrap items-center gap-2">
-              <input
-                aria-label="开始时间"
-                className="log-datetime-input rounded-md border border-[var(--line)] bg-white px-2 py-1 text-[11px]"
-                onChange={(e) => setStartLocal(e.target.value)}
-                type="datetime-local"
-                value={startLocal}
-              />
-              <span className="text-[var(--text-tertiary)]">—</span>
-              <input
-                aria-label="结束时间"
-                className="log-datetime-input rounded-md border border-[var(--line)] bg-white px-2 py-1 text-[11px]"
-                onChange={(e) => setEndLocal(e.target.value)}
-                type="datetime-local"
-                value={endLocal}
-              />
-              <button
-                className="rounded-md border border-[var(--line)] bg-[var(--bg-muted)] px-2 py-1 text-[11px] font-semibold text-[var(--text-secondary)]"
-                onClick={setLast24h}
-                type="button"
-              >
-                近 24h
-              </button>
-              <button
-                className="rounded-md border border-transparent px-2 py-1 text-[11px] font-semibold text-[var(--accent-strong)]"
-                onClick={clearRange}
-                type="button"
-              >
-                清除范围
-              </button>
+            <div className="log-filter-group flex flex-wrap items-center">
+              <span className="log-toolbar-label">Agent</span>
+              <div className="log-chip-wrap flex flex-wrap">
+                {agents.map((source) => (
+                  <button
+                    key={source}
+                    className="agent-filter-chip log-agent-chip"
+                    data-active={selectedSources.includes(source)}
+                    onClick={() => toggleSource(source)}
+                    type="button"
+                  >
+                    <AgentAvatar size="sm" source={source} />
+                    <span className="text-[11px] font-semibold">{agentSourceLabel(source)}</span>
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
-          <div className="text-[11px] text-[var(--text-secondary)] lg:pb-1">
-            匹配 <span className="font-semibold tabular-nums text-[var(--text-primary)]">{filteredEntries.length}</span>{" "}
-            条
+
+          <div className="log-range-panel flex min-w-0 flex-col">
+            <div className="log-range-header flex items-center justify-between gap-3">
+              <span className="log-toolbar-label">时间范围</span>
+              <div className="log-match-count text-[11px] text-[var(--text-secondary)]">
+                匹配{" "}
+                <span className="font-semibold tabular-nums text-[var(--text-primary)]">
+                  {filteredEntries.length}
+                </span>{" "}
+                条
+              </div>
+            </div>
+            <div className="log-range-fields flex flex-wrap items-center">
+              <label className="log-datetime-shell">
+                <span className="sr-only">开始时间</span>
+                <input
+                  aria-label="开始时间"
+                  className="log-datetime-input"
+                  onChange={(e) => setStartLocal(e.target.value)}
+                  type="datetime-local"
+                  value={startLocal}
+                />
+              </label>
+              <span className="log-range-divider" aria-hidden>
+                至
+              </span>
+              <label className="log-datetime-shell">
+                <span className="sr-only">结束时间</span>
+                <input
+                  aria-label="结束时间"
+                  className="log-datetime-input"
+                  onChange={(e) => setEndLocal(e.target.value)}
+                  type="datetime-local"
+                  value={endLocal}
+                />
+              </label>
+              <div className="log-range-actions flex flex-wrap items-center">
+                <button
+                  className="log-range-btn log-range-btn-solid"
+                  onClick={setLast24h}
+                  type="button"
+                >
+                  近 24h
+                </button>
+                <button
+                  className="log-range-btn log-range-btn-ghost"
+                  onClick={clearRange}
+                  type="button"
+                >
+                  清除范围
+                </button>
+              </div>
+            </div>
           </div>
         </div>
 
         {kinds.length > 0 ? (
-          <div>
-            <div className="text-[10px] font-bold uppercase tracking-[0.12em] text-[var(--text-tertiary)]">事件 kind</div>
-            <div className="mt-1.5 flex max-h-20 flex-wrap gap-0.5 overflow-y-auto">
+          <div className="log-filter-block">
+            <div className="log-toolbar-label">事件 kind</div>
+            <div className="log-chip-wrap log-chip-scroll mt-2 flex max-h-24 flex-wrap overflow-y-auto">
               {kinds.map((kind) => (
                 <button
                   key={kind}
-                  className="log-kind-chip filter-chip max-w-full rounded px-1.5 py-1 text-left text-[8px] font-semibold leading-snug break-all whitespace-normal"
+                  className="log-kind-chip filter-chip log-dense-chip max-w-full text-left"
                   data-active={selectedKinds.includes(kind)}
                   onClick={() => toggleKind(kind)}
                   title={kind}
@@ -371,13 +390,13 @@ export default function LogCenter({
         ) : null}
 
         {sessionIds.length > 0 ? (
-          <div>
-            <div className="text-[10px] font-bold uppercase tracking-[0.12em] text-[var(--text-tertiary)]">会话</div>
-            <div className="mt-1.5 flex max-h-20 flex-wrap gap-0.5 overflow-y-auto">
+          <div className="log-filter-block">
+            <div className="log-toolbar-label">会话</div>
+            <div className="log-chip-wrap log-chip-scroll mt-2 flex max-h-24 flex-wrap overflow-y-auto">
               {sessionIds.map((sessionId) => (
                 <button
                   key={sessionId}
-                  className="log-session-chip filter-chip max-w-full rounded px-1.5 py-1 text-left text-[8px] font-semibold leading-snug break-all whitespace-normal font-mono"
+                  className="log-session-chip filter-chip log-dense-chip max-w-full text-left font-mono"
                   data-active={selectedSessionIds.includes(sessionId)}
                   onClick={() => toggleSessionId(sessionId)}
                   title={sessionId}
