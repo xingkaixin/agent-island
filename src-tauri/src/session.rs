@@ -379,6 +379,10 @@ impl SessionStore {
         }
     }
 
+    pub fn force_remove_session(&mut self, session_id: &str) {
+        self.sessions.remove(session_id);
+    }
+
     fn resolve_session_id(&self, event: &AgentEvent) -> String {
         if !is_unknown_session_id(&event.session_id) {
             return event.session_id.clone();
@@ -824,6 +828,49 @@ mod tests {
         let sessions = store.snapshot();
         assert_eq!(sessions.len(), 1);
         assert_eq!(sessions[0].status, "running");
+    }
+
+    #[test]
+    fn force_remove_session_hides_existing_session() {
+        let log_path = temp_path("events-force-remove");
+        let mut store = SessionStore::new(log_path, std::env::temp_dir());
+        let now = Utc::now();
+
+        store.apply_event(&event("codex", "SessionStart", now));
+        assert_eq!(store.snapshot().len(), 1);
+
+        store.force_remove_session("codex-session");
+        assert!(store.snapshot().is_empty());
+    }
+
+    #[test]
+    fn force_remove_session_is_idempotent() {
+        let log_path = temp_path("events-force-remove-idempotent");
+        let mut store = SessionStore::new(log_path, std::env::temp_dir());
+        let now = Utc::now();
+
+        store.apply_event(&event("codex", "SessionStart", now));
+        store.apply_event(&event("cursor", "SessionStart", now));
+
+        store.force_remove_session("missing-session");
+
+        let sessions = store.snapshot();
+        assert_eq!(sessions.len(), 2);
+    }
+
+    #[test]
+    fn force_removed_session_reappears_on_new_event() {
+        let log_path = temp_path("events-force-remove-recreate");
+        let mut store = SessionStore::new(log_path, std::env::temp_dir());
+        let now = Utc::now();
+
+        store.apply_event(&event("codex", "SessionStart", now));
+        store.force_remove_session("codex-session");
+        store.apply_event(&event("codex", "UserPromptSubmit", now + Duration::seconds(1)));
+
+        let sessions = store.snapshot();
+        assert_eq!(sessions.len(), 1);
+        assert_eq!(sessions[0].id, "codex-session");
     }
 
     #[test]

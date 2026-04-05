@@ -1,4 +1,7 @@
+import { useState } from "react";
 import clsx from "clsx";
+import { X } from "lucide-react";
+import { forceRemoveSession } from "../lib/tauri";
 import type { SessionView } from "../types/agent";
 import AgentAvatar from "./AgentAvatar";
 
@@ -66,6 +69,19 @@ function launcherIconSrc(session: SessionView) {
 export default function SessionRow({ session }: { session: SessionView }) {
   const tone = statusTone(session);
   const iconSrc = launcherIconSrc(session);
+  const [isRemoving, setIsRemoving] = useState(false);
+
+  async function handleForceRemove() {
+    if (isRemoving) {
+      return;
+    }
+    setIsRemoving(true);
+    try {
+      await forceRemoveSession(session.id);
+    } finally {
+      setIsRemoving(false);
+    }
+  }
 
   return (
     <div className="session-row session-row-accent flex items-center gap-3 rounded-xl px-3 py-2.5" data-tone={tone}>
@@ -99,6 +115,16 @@ export default function SessionRow({ session }: { session: SessionView }) {
           </div>
         ) : null}
       </div>
+      <button
+        aria-label={`强退会话 ${formatWorkspaceLabel(session.cwd)}`}
+        className="session-row-dismiss icon-button no-drag shrink-0 rounded-lg p-2 disabled:opacity-50"
+        disabled={isRemoving}
+        onClick={() => void handleForceRemove()}
+        title="强退会话"
+        type="button"
+      >
+        <X className="h-4 w-4" aria-hidden />
+      </button>
     </div>
   );
 }

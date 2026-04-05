@@ -1,6 +1,15 @@
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import SessionRow from "./SessionRow";
 import type { SessionView } from "../types/agent";
+
+const { forceRemoveSession } = vi.hoisted(() => ({
+  forceRemoveSession: vi.fn(),
+}));
+
+vi.mock("../lib/tauri", () => ({
+  forceRemoveSession,
+}));
 
 function buildSession(overrides: Partial<SessionView> = {}): SessionView {
   return {
@@ -21,6 +30,10 @@ function buildSession(overrides: Partial<SessionView> = {}): SessionView {
 }
 
 describe("SessionRow", () => {
+  beforeEach(() => {
+    forceRemoveSession.mockReset();
+  });
+
   it("不再显示 elapsed 或 agent 名称标签", () => {
     render(<SessionRow session={buildSession()} />);
 
@@ -60,5 +73,16 @@ describe("SessionRow", () => {
 
     expect(screen.getByText("Zed")).toBeInTheDocument();
     expect(screen.queryByAltText("Zed")).not.toBeInTheDocument();
+  });
+
+  it("点击强退按钮时调用移除会话接口", async () => {
+    const user = userEvent.setup();
+    forceRemoveSession.mockResolvedValue(undefined);
+
+    render(<SessionRow session={buildSession()} />);
+
+    await user.click(screen.getByRole("button", { name: "强退会话 agent-island" }));
+
+    expect(forceRemoveSession).toHaveBeenCalledWith("session-1");
   });
 });

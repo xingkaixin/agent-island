@@ -65,3 +65,7 @@ export async function quitApp() {
 export async function clearLogs() {
   return invoke("clear_logs");
 }
+
+export async function forceRemoveSession(sessionId: string) {
+  return invoke("force_remove_session", { sessionId });
+}

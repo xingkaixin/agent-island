@@ -399,6 +399,19 @@ fn clear_logs(
     Ok(())
 }
 
+#[tauri::command]
+fn force_remove_session(
+    session_id: String,
+    app: tauri::AppHandle,
+    state: tauri::State<'_, Arc<AppServices>>,
+) -> Result<(), String> {
+    {
+        let mut sessions = state.sessions.lock().unwrap();
+        sessions.force_remove_session(&session_id);
+    }
+    emit_state(&app, &state).map_err(|error| error.to_string())
+}
+
 fn ensure_popover_window<R: Runtime>(window: &WebviewWindow<R>) {
     let _ = window.set_always_on_top(true);
     let _ = window.set_skip_taskbar(true);
@@ -611,7 +624,8 @@ pub fn run() {
             get_recent_logs,
             get_log_timeline,
             quit_app,
-            clear_logs
+            clear_logs,
+            force_remove_session
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
