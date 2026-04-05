@@ -52,6 +52,8 @@ export default function LogCenter({
   const [endLocal, setEndLocal] = useState("");
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [clearing, setClearing] = useState(false);
+  const [confirmingClear, setConfirmingClear] = useState(false);
+  const [clearError, setClearError] = useState<string | null>(null);
 
   const kinds = useMemo(
     () =>
@@ -106,6 +108,14 @@ export default function LogCenter({
       }),
     [entries, rangeBounds, selectedKinds, selectedSessionIds, selectedSources, viewMode],
   );
+  const hasAnyLogs = entries.length > 0;
+  const hasActiveFilters =
+    viewMode !== "all" ||
+    selectedSources.length > 0 ||
+    selectedKinds.length > 0 ||
+    selectedSessionIds.length > 0 ||
+    startLocal !== "" ||
+    endLocal !== "";
 
   function toggleSource(source: AgentSource) {
     setSelectedSources((current) =>
@@ -139,23 +149,33 @@ export default function LogCenter({
     setEndLocal("");
   }
 
-  async function handleClearLogs() {
-    const ok1 = window.confirm("确定清空全部日志吗？包含 Hook 事件与 bridge 诊断，且不可撤销。");
-    if (!ok1) {
+  function requestClearLogs() {
+    if (clearing || loading || !hasAnyLogs) {
       return;
     }
-    const ok2 = window.confirm("再次确认：将删除磁盘上的事件记录。");
-    if (!ok2) {
+    setClearError(null);
+    setConfirmingClear(true);
+  }
+
+  function cancelClearLogs() {
+    if (clearing) {
       return;
     }
+    setConfirmingClear(false);
+    setClearError(null);
+  }
+
+  async function handleConfirmClearLogs() {
     setClearing(true);
     try {
       await clearLogs();
+      setConfirmingClear(false);
+      setClearError(null);
       onLogsCleared?.();
       onRefresh();
       setExpandedId(null);
     } catch (e) {
-      window.alert(e instanceof Error ? e.message : "清空失败");
+      setClearError(e instanceof Error ? e.message : "清空失败");
     } finally {
       setClearing(false);
     }
@@ -181,12 +201,13 @@ export default function LogCenter({
           </button>
           <button
             className="ghost-button hook-ghost-btn rounded-lg px-3 py-1.5 text-xs font-semibold disabled:opacity-50"
-            disabled={clearing || loading}
-            onClick={() => void handleClearLogs()}
+            disabled={clearing || loading || !hasAnyLogs}
+            onClick={requestClearLogs}
+            title={!hasAnyLogs ? "当前没有可清理的日志" : undefined}
             type="button"
           >
             <Trash2 className="mr-1 inline-block h-3.5 w-3.5 align-[-2px]" aria-hidden />
-            清空日志
+            {confirmingClear ? "等待确认" : "清空日志"}
           </button>
           <button
             className="icon-button no-drag rounded-lg p-2"
@@ -199,6 +220,54 @@ export default function LogCenter({
           </button>
         </div>
       </div>
+
+      {!hasAnyLogs ? (
+        <div className="log-empty-note mt-3 rounded-lg border px-3 py-2 text-xs text-[var(--text-secondary)]">
+          当前没有可清理的日志。
+        </div>
+      ) : null}
+
+      {confirmingClear ? (
+        <div className="log-danger-panel mt-4 rounded-xl border px-4 py-3">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="min-w-0">
+              <div className="text-xs font-semibold text-[var(--danger)]">确认清空日志</div>
+              <p className="mt-1 text-xs leading-5 text-[var(--text-secondary)]">
+                会删除 Hook 事件与 bridge 诊断，并清空磁盘上的事件记录。这个操作不可撤销。
+              </p>
+              {hasActiveFilters ? (
+                <p className="mt-1 text-xs leading-5 text-[var(--danger)]">
+                  当前已应用筛选条件，但确认后仍会清空全部日志，不仅是当前筛选结果。
+                </p>
+              ) : null}
+            </div>
+            <div className="flex shrink-0 items-center gap-2">
+              <button
+                className="secondary-button rounded-lg px-3 py-1.5 text-xs font-semibold disabled:opacity-50"
+                disabled={clearing}
+                onClick={cancelClearLogs}
+                type="button"
+              >
+                取消
+              </button>
+              <button
+                className="ghost-button rounded-lg px-3 py-1.5 text-xs font-semibold disabled:opacity-50"
+                disabled={clearing}
+                onClick={() => void handleConfirmClearLogs()}
+                type="button"
+              >
+                {clearing ? "清空中..." : "确认清空"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {clearError ? (
+        <div className="log-error-banner mt-3 rounded-lg border px-3 py-2 text-xs" role="alert">
+          {clearError}
+        </div>
+      ) : null}
 
       <div className="log-toolbar mt-4 flex flex-col gap-3 rounded-xl border border-[var(--line)] bg-white p-3">
         <div className="flex flex-wrap items-center gap-2">
