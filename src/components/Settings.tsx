@@ -1,13 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { motion, useReducedMotion } from "framer-motion";
-import { ChevronRight, Download, FileText, RotateCcw, Trash2 } from "lucide-react";
+import { ChevronRight, Download, FileText, Trash2 } from "lucide-react";
 import {
   getAppState,
   getInstallStatus,
   getLogTimeline,
   injectAgentHooks,
   removeAgentHooks,
-  restoreAgentBackup,
   setUserPreferences,
 } from "../lib/tauri";
 import { useSessionStore } from "../store/sessions";
@@ -52,20 +51,6 @@ function formatTime(value: string) {
   });
 }
 
-function lastSeenSummary(item: InstallStatusItem | undefined) {
-  if (!item?.lastSeenAt) {
-    return "尚无 bridge 命中";
-  }
-
-  const parts = [`${formatTime(item.lastSeenAt)}`];
-  if (item.lastSeenKind) {
-    parts.push(item.lastSeenKind);
-  }
-  if (item.lastSeenWorkspace) {
-    parts.push(item.lastSeenWorkspace);
-  }
-  return parts.join(" · ");
-}
 
 export default function Settings() {
   const { preferences, logs, updatePreferences, replaceState } = useSessionStore();
@@ -137,36 +122,6 @@ export default function Settings() {
         className="settings-shell settings-shell-v2 mx-auto flex max-w-5xl flex-col gap-5 rounded-[22px] p-5 sm:p-6"
         data-page={page === "logs" ? "logs" : "overview"}
       >
-        <section className="settings-card settings-hero rounded-[18px] px-5 py-5">
-          <div className="eyebrow">{page === "overview" ? "Settings" : "Log Center"}</div>
-          <div className="mt-2 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-            <div className="max-w-xl">
-              <h1 className="text-2xl font-semibold tracking-[-0.03em] sm:text-[1.75rem]">
-                {page === "overview" ? "设置" : "日志中心"}
-              </h1>
-              <p className="mt-2 text-sm leading-relaxed text-[var(--text-secondary)]">
-                {page === "overview"
-                  ? "管理 Hook 与登录启动。排障请用日志中心。"
-                  : "查看 Hook 与 bridge 记录，支持来源与事件筛选，自动仅保留最近 3 天。"}
-              </p>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <div className="settings-stat-chip rounded-lg px-3 py-2">
-                <div className="text-lg font-semibold tabular-nums leading-none">{agents.length}</div>
-                <div className="mt-1 text-[10px] font-medium uppercase tracking-[0.08em] text-[var(--text-tertiary)]">
-                  Agent
-                </div>
-              </div>
-              <div className="settings-stat-chip rounded-lg px-3 py-2">
-                <div className="text-lg font-semibold tabular-nums leading-none">{timeline.length}</div>
-                <div className="mt-1 text-[10px] font-medium uppercase tracking-[0.08em] text-[var(--text-tertiary)]">
-                  日志条数
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-
         {page === "logs" ? (
           <LogCenter
             entries={timeline}
@@ -217,18 +172,10 @@ export default function Settings() {
                         </div>
                       </div>
 
-                      {item ? (
-                        <p className="mt-2 line-clamp-2 text-[11px] leading-relaxed text-[var(--text-secondary)]">
-                          {item.agent === "cursor"
-                            ? `有新 hook 事件会重新进入会话列表。${lastSeenSummary(item)}`
-                            : lastSeenSummary(item)}
-                        </p>
-                      ) : null}
-
                       <div className="settings-agent-actions mt-2.5 flex flex-wrap">
                         <button
                           className="settings-action-btn hook-primary-btn inline-flex items-center disabled:opacity-50"
-                          disabled={busy !== null}
+                          disabled={busy !== null || item?.injected === true}
                           onClick={() => runAgentAction("inject", injectAgentHooks, agent)}
                           type="button"
                         >
@@ -237,29 +184,14 @@ export default function Settings() {
                         </button>
                         <button
                           className="settings-action-btn hook-secondary-btn inline-flex items-center disabled:opacity-50"
-                          disabled={busy !== null}
+                          disabled={busy !== null || !item?.injected}
                           onClick={() => runAgentAction("remove", removeAgentHooks, agent)}
                           type="button"
                         >
                           <Trash2 className="h-3 w-3" aria-hidden />
                           移除
                         </button>
-                        <button
-                          className="settings-action-btn hook-secondary-btn inline-flex items-center disabled:opacity-50"
-                          disabled={busy !== null}
-                          onClick={() => runAgentAction("restore", restoreAgentBackup, agent)}
-                          type="button"
-                        >
-                          <RotateCcw className="h-3 w-3" aria-hidden />
-                          恢复
-                        </button>
                       </div>
-
-                      {item?.backupPath ? (
-                        <div className="mt-2 truncate text-[10px] text-[var(--text-tertiary)]" title={item.backupPath}>
-                          备份: {item.backupPath}
-                        </div>
-                      ) : null}
                     </motion.div>
                   );
                 })}

@@ -149,14 +149,7 @@ export default function LogCenter({
 
   return (
     <section className="settings-card log-center-shell rounded-[22px] p-5">
-      <div className="log-header flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <div className="eyebrow">Log Center</div>
-          <h2 className="mt-1 text-lg font-semibold tracking-[-0.02em]">日志</h2>
-          <p className="mt-1 max-w-[56ch] text-xs leading-5 text-[var(--text-secondary)]">
-            Hook 与 bridge 合并时间线。点行展开原始内容；支持按来源和类型筛选，自动仅保留最近 3 天。
-          </p>
-        </div>
+      <div className="log-header flex flex-wrap items-center justify-end gap-2">
         <div className="log-header-actions flex flex-wrap items-center">
           <button
             className="log-toolbar-btn secondary-button"
