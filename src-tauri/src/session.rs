@@ -171,6 +171,30 @@ impl SessionStore {
         Ok(())
     }
 
+    pub fn prune_logs_older_than(
+        &mut self,
+        bridge_log_path: &PathBuf,
+        cutoff: DateTime<Utc>,
+    ) -> Result<bool, std::io::Error> {
+        let event_changed = prune_json_lines(&self.log_path, |line| {
+            let entry = serde_json::from_str::<LogEntry>(line).ok()?;
+            Some(entry.created_at >= cutoff)
+        })?;
+        let bridge_changed = prune_json_lines(bridge_log_path, |line| {
+            let value = serde_json::from_str::<Value>(line).ok()?;
+            let timestamp = value
+                .get("timestamp")
+                .and_then(Value::as_str)
+                .and_then(parse_timestamp)?;
+            Some(timestamp >= cutoff)
+        })?;
+
+        let original_len = self.logs.len();
+        self.logs.retain(|entry| entry.created_at >= cutoff);
+
+        Ok(event_changed || bridge_changed || self.logs.len() != original_len)
+    }
+
     pub fn log_timeline(&self, limit: usize, bridge_log_path: &PathBuf) -> Vec<TimelineLogEntry> {
         let mut entries = read_event_log_entries(&self.log_path);
         entries.extend(read_bridge_log_entries(bridge_log_path));
@@ -619,6 +643,41 @@ fn read_json_lines<T>(
         .collect()
 }
 
+fn prune_json_lines(
+    path: &PathBuf,
+    should_keep: impl Fn(&str) -> Option<bool>,
+) -> Result<bool, std::io::Error> {
+    let Ok(file) = File::open(path) else {
+        return Ok(false);
+    };
+
+    let mut retained = Vec::new();
+    let mut changed = false;
+
+    for line in BufReader::new(file).lines() {
+        let line = line?;
+        match should_keep(&line) {
+            Some(true) => retained.push(line),
+            Some(false) | None => changed = true,
+        }
+    }
+
+    if !changed {
+        return Ok(false);
+    }
+
+    if let Some(parent) = path.parent() {
+        let _ = std::fs::create_dir_all(parent);
+    }
+
+    let mut file = File::create(path)?;
+    for line in retained {
+        writeln!(file, "{line}")?;
+    }
+
+    Ok(true)
+}
+
 fn parse_event_log_entry(_index: usize, line: &str) -> Option<TimelineLogEntry> {
     let entry = serde_json::from_str::<LogEntry>(line).ok()?;
     Some(TimelineLogEntry {
@@ -770,5 +829,52 @@ mod tests {
         assert_eq!(timeline[0].stage.as_deref(), Some("response"));
         assert_eq!(timeline[1].channel, "event");
         assert_eq!(timeline[2].kind, "SessionStart");
+    }
+
+    #[test]
+    fn prune_logs_older_than_keeps_only_recent_entries() {
+        let event_log_path = temp_path("events-prune");
+        let bridge_log_path = temp_path("bridge-prune");
+        let cutoff = parse_timestamp("2026-04-05T00:00:00+00:00").unwrap();
+        let mut store = SessionStore::new(event_log_path.clone());
+
+        store.push_log(LogEntry {
+            id: "old-event".into(),
+            source: "codex".into(),
+            session_id: Some("session-1".into()),
+            kind: "old".into(),
+            created_at: parse_timestamp("2026-04-04T23:59:59+00:00").unwrap(),
+            raw: "{\"kind\":\"old\"}".into(),
+        });
+        store.push_log(LogEntry {
+            id: "new-event".into(),
+            source: "codex".into(),
+            session_id: Some("session-2".into()),
+            kind: "new".into(),
+            created_at: parse_timestamp("2026-04-05T00:00:00+00:00").unwrap(),
+            raw: "{\"kind\":\"new\"}".into(),
+        });
+
+        std::fs::write(
+            &bridge_log_path,
+            concat!(
+                "{\"timestamp\":\"2026-04-04T10:00:00+00:00\",\"stage\":\"old\",\"payload\":{\"ok\":true}}\n",
+                "{\"timestamp\":\"2026-04-05T10:00:00+00:00\",\"stage\":\"new\",\"payload\":{\"ok\":true}}\n",
+                "broken-line\n"
+            ),
+        )
+        .unwrap();
+
+        let changed = store
+            .prune_logs_older_than(&bridge_log_path, cutoff)
+            .unwrap();
+
+        assert!(changed);
+        assert_eq!(store.logs.len(), 1);
+        assert_eq!(store.logs[0].id, "new-event");
+
+        let timeline = store.log_timeline(10, &bridge_log_path);
+        assert_eq!(timeline.len(), 2);
+        assert!(timeline.iter().all(|entry| entry.created_at >= cutoff));
     }
 }

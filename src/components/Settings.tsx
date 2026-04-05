@@ -147,7 +147,7 @@ export default function Settings() {
               <p className="mt-2 text-sm leading-relaxed text-[var(--text-secondary)]">
                 {page === "overview"
                   ? "管理 Hook 与登录启动。排障请用日志中心。"
-                  : "按时间查看 Hook 与 bridge 记录，可筛选时段。"}
+                  : "查看 Hook 与 bridge 记录，支持来源与事件筛选，自动仅保留最近 3 天。"}
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
@@ -314,7 +314,7 @@ export default function Settings() {
                     <span className="min-w-0">
                       <span className="block text-[13px] font-semibold">查看全部日志</span>
                       <span className="block truncate text-[11px] text-[var(--text-secondary)]">
-                        筛选、时段、清空
+                        筛选、查看、清空
                       </span>
                     </span>
                   </span>

@@ -27,6 +27,8 @@ const TRAY_ID: &str = "agent-island-tray";
 const POPOVER_WIDTH: f64 = 420.0;
 const POPOVER_HEIGHT: f64 = 520.0;
 const POPUP_TOP_MARGIN: f64 = 6.0;
+const LOG_RETENTION_DAYS: i64 = 3;
+const LOG_PRUNE_INTERVAL_SECS: u64 = 60 * 60;
 
 #[derive(Clone, Copy)]
 struct TrayAnchor {
@@ -279,6 +281,22 @@ fn emit_state(app: &tauri::AppHandle, services: &AppServices) -> tauri::Result<(
     Ok(())
 }
 
+fn prune_old_logs(app: &tauri::AppHandle, services: &Arc<AppServices>) -> Result<bool, String> {
+    let cutoff = chrono::Utc::now() - chrono::Duration::days(LOG_RETENTION_DAYS);
+    let changed = {
+        let mut sessions = services.sessions.lock().unwrap();
+        sessions
+            .prune_logs_older_than(&services.bridge_log_path, cutoff)
+            .map_err(|error| error.to_string())?
+    };
+
+    if changed {
+        emit_state(app, services).map_err(|error| error.to_string())?;
+    }
+
+    Ok(changed)
+}
+
 #[tauri::command]
 fn get_app_state(state: tauri::State<'_, Arc<AppServices>>) -> AppStateSnapshot {
     state.snapshot()
@@ -492,6 +510,15 @@ fn spawn_tray_animation(app: tauri::AppHandle, services: Arc<AppServices>) {
     });
 }
 
+fn spawn_log_prune_task(app: tauri::AppHandle, services: Arc<AppServices>) {
+    tauri::async_runtime::spawn(async move {
+        loop {
+            tokio::time::sleep(std::time::Duration::from_secs(LOG_PRUNE_INTERVAL_SECS)).await;
+            let _ = prune_old_logs(&app, &services);
+        }
+    });
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -524,6 +551,7 @@ pub fn run() {
 
             ensure_bridge_installed().ok();
             apply_launch_at_login(&app_handle, preferences.launch_at_login).ok();
+            let _ = prune_old_logs(&app_handle, &services);
 
             let main_window = app_handle
                 .get_webview_window("main")
@@ -554,7 +582,8 @@ pub fn run() {
 
             emit_state(&app_handle, &services).ok();
             start_ipc_server(app_handle.clone(), services.clone())?;
-            spawn_tray_animation(app_handle, services);
+            spawn_tray_animation(app_handle.clone(), services.clone());
+            spawn_log_prune_task(app_handle, services);
 
             Ok(())
         })

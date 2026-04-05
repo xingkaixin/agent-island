@@ -24,11 +24,6 @@ function entryStageLabel(entry: TimelineLogEntry) {
   return "hook";
 }
 
-function toLocalDatetimeValue(d: Date) {
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
-
 interface LogCenterProps {
   entries: TimelineLogEntry[];
   loading: boolean;
@@ -48,8 +43,6 @@ export default function LogCenter({
   const [selectedKinds, setSelectedKinds] = useState<string[]>([]);
   const [selectedSessionIds, setSelectedSessionIds] = useState<string[]>([]);
   const [viewMode, setViewMode] = useState<"all" | "event" | "bridge">("all");
-  const [startLocal, setStartLocal] = useState("");
-  const [endLocal, setEndLocal] = useState("");
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [clearing, setClearing] = useState(false);
   const [confirmingClear, setConfirmingClear] = useState(false);
@@ -73,12 +66,6 @@ export default function LogCenter({
     return Array.from(ids).sort((left, right) => left.localeCompare(right));
   }, [entries]);
 
-  const rangeBounds = useMemo(() => {
-    const startMs = startLocal ? new Date(startLocal).getTime() : null;
-    const endMs = endLocal ? new Date(endLocal).getTime() : null;
-    return { startMs, endMs };
-  }, [startLocal, endLocal]);
-
   const filteredEntries = useMemo(
     () =>
       entries.filter((entry) => {
@@ -97,25 +84,16 @@ export default function LogCenter({
         ) {
           return false;
         }
-        const t = new Date(entry.createdAt).getTime();
-        if (rangeBounds.startMs !== null && !Number.isNaN(rangeBounds.startMs) && t < rangeBounds.startMs) {
-          return false;
-        }
-        if (rangeBounds.endMs !== null && !Number.isNaN(rangeBounds.endMs) && t > rangeBounds.endMs) {
-          return false;
-        }
         return true;
       }),
-    [entries, rangeBounds, selectedKinds, selectedSessionIds, selectedSources, viewMode],
+    [entries, selectedKinds, selectedSessionIds, selectedSources, viewMode],
   );
   const hasAnyLogs = entries.length > 0;
   const hasActiveFilters =
     viewMode !== "all" ||
     selectedSources.length > 0 ||
     selectedKinds.length > 0 ||
-    selectedSessionIds.length > 0 ||
-    startLocal !== "" ||
-    endLocal !== "";
+    selectedSessionIds.length > 0;
 
   function toggleSource(source: AgentSource) {
     setSelectedSources((current) =>
@@ -135,18 +113,6 @@ export default function LogCenter({
         ? current.filter((item) => item !== sessionId)
         : [...current, sessionId],
     );
-  }
-
-  function setLast24h() {
-    const end = new Date();
-    const start = new Date(end.getTime() - 24 * 60 * 60 * 1000);
-    setStartLocal(toLocalDatetimeValue(start));
-    setEndLocal(toLocalDatetimeValue(end));
-  }
-
-  function clearRange() {
-    setStartLocal("");
-    setEndLocal("");
   }
 
   function requestClearLogs() {
@@ -188,7 +154,7 @@ export default function LogCenter({
           <div className="eyebrow">Log Center</div>
           <h2 className="mt-1 text-lg font-semibold tracking-[-0.02em]">日志</h2>
           <p className="mt-1 max-w-[56ch] text-xs leading-5 text-[var(--text-secondary)]">
-            Hook 与 bridge 合并时间线。点行展开原始内容；可按时间段缩小范围。
+            Hook 与 bridge 合并时间线。点行展开原始内容；支持按来源和类型筛选，自动仅保留最近 3 天。
           </p>
         </div>
         <div className="log-header-actions flex flex-wrap items-center">
@@ -270,7 +236,17 @@ export default function LogCenter({
       ) : null}
 
       <div className="log-toolbar mt-4 flex flex-col rounded-xl">
-        <div className="log-toolbar-row flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
+        <div className="log-toolbar-row flex flex-col gap-3">
+          <div className="flex items-center justify-between gap-3">
+            <span className="log-toolbar-label">日志筛选</span>
+            <div className="log-match-count text-[11px] text-[var(--text-secondary)]">
+              匹配{" "}
+              <span className="font-semibold tabular-nums text-[var(--text-primary)]">
+                {filteredEntries.length}
+              </span>{" "}
+              条
+            </div>
+          </div>
           <div className="log-filter-stack flex min-w-0 flex-1 flex-col gap-3">
             <div className="log-filter-group flex flex-wrap items-center">
               <span className="log-toolbar-label">视图</span>
@@ -310,60 +286,6 @@ export default function LogCenter({
                     <span className="text-[11px] font-semibold">{agentSourceLabel(source)}</span>
                   </button>
                 ))}
-              </div>
-            </div>
-          </div>
-
-          <div className="log-range-panel flex min-w-0 flex-col">
-            <div className="log-range-header flex items-center justify-between gap-3">
-              <span className="log-toolbar-label">时间范围</span>
-              <div className="log-match-count text-[11px] text-[var(--text-secondary)]">
-                匹配{" "}
-                <span className="font-semibold tabular-nums text-[var(--text-primary)]">
-                  {filteredEntries.length}
-                </span>{" "}
-                条
-              </div>
-            </div>
-            <div className="log-range-fields flex flex-wrap items-center">
-              <label className="log-datetime-shell">
-                <span className="sr-only">开始时间</span>
-                <input
-                  aria-label="开始时间"
-                  className="log-datetime-input"
-                  onChange={(e) => setStartLocal(e.target.value)}
-                  type="datetime-local"
-                  value={startLocal}
-                />
-              </label>
-              <span className="log-range-divider" aria-hidden>
-                至
-              </span>
-              <label className="log-datetime-shell">
-                <span className="sr-only">结束时间</span>
-                <input
-                  aria-label="结束时间"
-                  className="log-datetime-input"
-                  onChange={(e) => setEndLocal(e.target.value)}
-                  type="datetime-local"
-                  value={endLocal}
-                />
-              </label>
-              <div className="log-range-actions flex flex-wrap items-center">
-                <button
-                  className="log-range-btn log-range-btn-solid"
-                  onClick={setLast24h}
-                  type="button"
-                >
-                  近 24h
-                </button>
-                <button
-                  className="log-range-btn log-range-btn-ghost"
-                  onClick={clearRange}
-                  type="button"
-                >
-                  清除范围
-                </button>
               </div>
             </div>
           </div>
