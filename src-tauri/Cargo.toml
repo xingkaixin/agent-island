@@ -2,8 +2,8 @@
 name = "agent-island"
 version = "0.1.0"
 description = "AgentIsland desktop app"
-authors = ["Kevin"]
-edition = "2021"
+authors = ["XingKaiXin"]
+edition = "2024"
 default-run = "agent-island"
 
 [lib]
