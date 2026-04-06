@@ -124,7 +124,7 @@ export default function App() {
     : { initial: { opacity: 0, y: 12 }, animate: { opacity: 1, y: 0 } };
 
   return (
-    <div className="min-h-screen bg-transparent p-3 text-[var(--text-primary)]">
+    <div className="h-screen bg-transparent p-3 text-[var(--text-primary)]">
       <div
         ref={focusParkingRef}
         aria-hidden="true"
@@ -134,7 +134,7 @@ export default function App() {
       <motion.div
         {...enterMotion}
         transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-        className={`menu-panel mx-auto flex h-[520px] w-full max-w-[420px] flex-col overflow-hidden rounded-xl border border-[var(--border)] bg-[rgba(0,0,0,0.92)] ${
+        className={`menu-panel mx-auto flex h-full max-h-full w-full max-w-[420px] flex-col overflow-hidden rounded-xl border border-[var(--border)] bg-[rgba(0,0,0,0.92)] ${
           hasAttention || permissionRequest ? "attention-ring" : ""
         }`}
       >
@@ -204,7 +204,7 @@ export default function App() {
           </div>
         </div>
 
-        <div className="flex flex-1 flex-col gap-2 overflow-y-auto px-2.5 py-2.5">
+        <div className="flex min-h-0 flex-1 flex-col gap-2 px-2.5 py-2.5">
           {hasAttention || permissionRequest ? (
             <motion.section
               initial={reduceMotion ? false : { opacity: 0, y: 10 }}
@@ -234,7 +234,7 @@ export default function App() {
             </motion.section>
           ) : null}
 
-          <section className="panel-card rounded-xl p-3">
+          <section className="panel-card flex min-h-0 flex-1 flex-col rounded-xl p-3">
             <div className="flex items-center justify-between gap-2">
               <h2 className="font-[var(--font-mono)] text-[11px] font-bold uppercase tracking-[0.08em] text-[var(--text-secondary)]">会话</h2>
               <span className="font-[var(--font-mono)] text-[10px] text-[var(--text-disabled)]">
@@ -243,7 +243,7 @@ export default function App() {
             </div>
 
             {sessions.length > 0 ? (
-              <div className="mt-2 flex flex-col gap-2">
+              <div className="mt-2 flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto pr-1">
                 {sessions.map((session, index) => (
                   <motion.div
                     key={session.id}

@@ -41,7 +41,7 @@
   --radius-xl: 16px;
   --radius-pill: 999px;
 
-  background: var(--black);
+  background: transparent;
   color: var(--text-primary);
 }
 
