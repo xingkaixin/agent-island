@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { motion, useReducedMotion } from "framer-motion";
 import { CircleDot, LogOut, Settings2 } from "lucide-react";
@@ -39,6 +39,7 @@ export default function App() {
   const { hydrated, sessions, permissionRequest, replaceState } = useSessionStore();
   const [windowLabel, setWindowLabel] = useState("main");
   const reduceMotion = useReducedMotion();
+  const focusParkingRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     void (async () => {
@@ -88,15 +89,24 @@ export default function App() {
   );
   const sessionSummary = useMemo(() => summarizeSessions(sessions), [sessions]);
 
+  const parkInitialFocus = () => {
+    window.requestAnimationFrame(() => {
+      focusParkingRef.current?.focus();
+    });
+  };
+
   useEffect(() => {
     if (windowLabel !== "main") {
       return;
     }
+    parkInitialFocus();
     const currentWindow = getCurrentWindow();
     const unlisten = currentWindow.onFocusChanged(({ payload: focused }) => {
       if (!focused) {
         void currentWindow.hide();
+        return;
       }
+      parkInitialFocus();
     });
     return () => {
       void unlisten.then((dispose) => dispose());
@@ -115,6 +125,12 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-transparent p-3 text-[var(--text-primary)]">
+      <div
+        ref={focusParkingRef}
+        aria-hidden="true"
+        className="sr-only"
+        tabIndex={-1}
+      />
       <motion.div
         {...enterMotion}
         transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
