@@ -304,9 +304,18 @@ impl SessionStore {
                 session.status_detail = "idle".into();
             }
             "notification" | "Notification" => {
-                session.status = "attention".into();
-                session.status_detail = describe_attention_event(event);
-                session.needs_user_attention = true;
+                match classify_notification(event) {
+                    NotificationDisposition::Idle => {
+                        session.status = "idle".into();
+                        session.status_detail = notification_idle_detail(event);
+                        session.needs_user_attention = false;
+                    }
+                    NotificationDisposition::Attention => {
+                        session.status = "attention".into();
+                        session.status_detail = describe_attention_event(event);
+                        session.needs_user_attention = true;
+                    }
+                }
             }
             "permission_request" | "PermissionRequest" => {
                 session.status = "attention".into();
@@ -489,6 +498,31 @@ fn describe_attention_event(event: &AgentEvent) -> String {
         .to_string()
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum NotificationDisposition {
+    Idle,
+    Attention,
+}
+
+fn classify_notification(event: &AgentEvent) -> NotificationDisposition {
+    if is_idle_prompt(event) {
+        return NotificationDisposition::Idle;
+    }
+
+    NotificationDisposition::Attention
+}
+
+fn notification_idle_detail(event: &AgentEvent) -> String {
+    event
+        .payload
+        .get("message")
+        .or_else(|| event.payload.get("summary"))
+        .or_else(|| event.payload.get("title"))
+        .and_then(Value::as_str)
+        .unwrap_or("idle")
+        .to_string()
+}
+
 fn is_permission_prompt(event: &AgentEvent) -> bool {
     if is_ask_user_question(event) {
         return false;
@@ -528,6 +562,14 @@ fn is_permission_prompt(event: &AgentEvent) -> bool {
 
 fn is_ask_user_question(event: &AgentEvent) -> bool {
     tool_name(event) == Some("AskUserQuestion")
+}
+
+fn is_idle_prompt(event: &AgentEvent) -> bool {
+    event
+        .payload
+        .get("notification_type")
+        .and_then(Value::as_str)
+        == Some("idle_prompt")
 }
 
 fn permission_summary(event: &AgentEvent) -> Option<String> {
@@ -800,6 +842,21 @@ mod tests {
         }
     }
 
+    fn event_with_payload(
+        source: &str,
+        kind: &str,
+        timestamp: DateTime<Utc>,
+        payload: Value,
+    ) -> AgentEvent {
+        AgentEvent {
+            source: source.into(),
+            session_id: format!("{source}-session"),
+            timestamp: Some(timestamp),
+            kind: kind.into(),
+            payload,
+        }
+    }
+
     #[test]
     fn codex_prompt_submit_stays_running_until_stop() {
         let log_path = temp_path("events");
@@ -950,5 +1007,105 @@ mod tests {
         let timeline = store.log_timeline(10, &bridge_log_path);
         assert_eq!(timeline.len(), 2);
         assert!(timeline.iter().all(|entry| entry.created_at >= cutoff));
+    }
+
+    #[test]
+    fn idle_prompt_notification_does_not_require_attention() {
+        let log_path = temp_path("events-idle-prompt");
+        let mut store = SessionStore::new(log_path, std::env::temp_dir());
+        let now = Utc::now();
+
+        store.apply_event(&event("codex", "SessionStart", now));
+        store.apply_event(&event_with_payload(
+            "codex",
+            "Notification",
+            now + Duration::seconds(1),
+            json!({
+                "cwd": "/tmp/project",
+                "notification_type": "idle_prompt",
+                "message": "Claude is waiting for your input"
+            }),
+        ));
+
+        let sessions = store.snapshot();
+        assert_eq!(sessions.len(), 1);
+        assert_eq!(sessions[0].status, "idle");
+        assert_eq!(sessions[0].status_detail, "Claude is waiting for your input");
+        assert!(!sessions[0].needs_user_attention);
+    }
+
+    #[test]
+    fn permission_prompt_notification_still_requires_attention() {
+        let log_path = temp_path("events-permission-prompt");
+        let mut store = SessionStore::new(log_path, std::env::temp_dir());
+        let now = Utc::now();
+
+        store.apply_event(&event("codex", "SessionStart", now));
+        store.apply_event(&event_with_payload(
+            "codex",
+            "Notification",
+            now + Duration::seconds(1),
+            json!({
+                "cwd": "/tmp/project",
+                "notification_type": "permission_prompt",
+                "message": "Permission needed"
+            }),
+        ));
+
+        let sessions = store.snapshot();
+        assert_eq!(sessions.len(), 1);
+        assert_eq!(sessions[0].status, "attention");
+        assert!(sessions[0].needs_user_attention);
+    }
+
+    #[test]
+    fn ask_user_question_notification_still_requires_attention() {
+        let log_path = temp_path("events-ask-user");
+        let mut store = SessionStore::new(log_path, std::env::temp_dir());
+        let now = Utc::now();
+
+        store.apply_event(&event("codex", "SessionStart", now));
+        store.apply_event(&event_with_payload(
+            "codex",
+            "Notification",
+            now + Duration::seconds(1),
+            json!({
+                "cwd": "/tmp/project",
+                "tool_name": "AskUserQuestion",
+                "tool_input": {
+                    "questions": [
+                        { "question": "Which option should I choose?" }
+                    ]
+                }
+            }),
+        ));
+
+        let sessions = store.snapshot();
+        assert_eq!(sessions.len(), 1);
+        assert_eq!(sessions[0].status, "attention");
+        assert!(sessions[0].needs_user_attention);
+    }
+
+    #[test]
+    fn unknown_notification_remains_attention() {
+        let log_path = temp_path("events-unknown-notification");
+        let mut store = SessionStore::new(log_path, std::env::temp_dir());
+        let now = Utc::now();
+
+        store.apply_event(&event("codex", "SessionStart", now));
+        store.apply_event(&event_with_payload(
+            "codex",
+            "Notification",
+            now + Duration::seconds(1),
+            json!({
+                "cwd": "/tmp/project",
+                "message": "Something needs attention"
+            }),
+        ));
+
+        let sessions = store.snapshot();
+        assert_eq!(sessions.len(), 1);
+        assert_eq!(sessions[0].status, "attention");
+        assert!(sessions[0].needs_user_attention);
     }
 }
