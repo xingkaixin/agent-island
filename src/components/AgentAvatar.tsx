@@ -3,7 +3,7 @@ import type { AgentSource, SessionStatus } from "../types/agent";
 
 const iconBySource: Record<AgentSource, string> = {
   claude: "/agent-icon/claudecode-color.png",
-  codex: "/agent-icon/codex-color.png",
+  codex: "/agent-icon/codex.png",
   cursor: "/agent-icon/cursor.png",
 };
 

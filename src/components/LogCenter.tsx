@@ -148,7 +148,7 @@ export default function LogCenter({
   }
 
   return (
-    <section className="settings-card log-center-shell rounded-xl p-5">
+    <section className="settings-card log-center-shell w-full rounded-xl p-4 sm:p-5">
       {!hasAnyLogs ? (
         <div className="log-empty-note mt-4 rounded-lg border px-3 py-2 text-xs text-[var(--text-secondary)]">
           当前没有可清理的日志。

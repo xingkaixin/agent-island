@@ -289,14 +289,13 @@ input {
 
 .settings-shell {
   position: relative;
-  overflow: hidden;
-  border: 1px solid var(--border);
-  background: var(--black);
+  width: 100%;
+  min-width: 0;
 }
 
 .settings-shell-v2 {
-  border-color: var(--border);
-  background: var(--black);
+  border: 0;
+  background: transparent;
 }
 
 .settings-hero {

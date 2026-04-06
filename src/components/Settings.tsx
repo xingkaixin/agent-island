@@ -115,11 +115,11 @@ export default function Settings() {
   const recentTimeline = useMemo(() => timeline.slice(0, 3), [timeline]);
 
   return (
-    <div className="min-h-screen bg-transparent p-5 text-[var(--text-primary)] sm:p-8">
+    <div className="bg-transparent px-3 py-3 text-[var(--text-primary)] sm:px-4 sm:py-4">
       <motion.div
         {...staggerTransition}
         transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-        className="settings-shell settings-shell-v2 mx-auto flex max-w-5xl flex-col gap-5 rounded-xl p-5 sm:p-6"
+        className="settings-shell settings-shell-v2 flex w-full min-w-0 flex-col gap-4 rounded-xl p-0"
         data-page={page === "logs" ? "logs" : "overview"}
       >
         {page === "logs" ? (
@@ -131,7 +131,7 @@ export default function Settings() {
             onRefresh={() => void refreshTimeline()}
           />
         ) : (
-          <section className="grid gap-5 lg:grid-cols-[1fr_min(320px,100%)]">
+          <section className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
             <motion.div
               {...staggerTransition}
               transition={{ duration: 0.2, delay: 0.04, ease: [0.16, 1, 0.3, 1] }}
