@@ -94,7 +94,7 @@ export default function SessionRow({ session }: { session: SessionView }) {
         <div className="flex items-center gap-2">
           <span
             className={clsx(
-              "session-status-badge rounded-full px-2.5 py-1 text-[10px] font-semibold tracking-[0.08em]",
+              "session-status-badge rounded-full px-2.5 py-1",
             )}
             data-tone={tone}
           >

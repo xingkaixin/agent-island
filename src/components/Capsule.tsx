@@ -74,14 +74,14 @@ export default function Capsule({
         width: capsuleWidth(sessions, hasPermission, expanded),
         height: capsuleHeight(sessions, hasPermission, expanded),
       }}
-      transition={{ type: "spring", stiffness: 320, damping: 28 }}
-      className={`capsule-shadow window-drag mx-auto mt-0 overflow-hidden rounded-b-[36px] border border-white/40 bg-[var(--bg-shell)]/95 backdrop-blur-xl ${
+      transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+      className={`window-drag mx-auto mt-0 overflow-hidden rounded-b-xl border border-[var(--border)] bg-[rgba(0,0,0,0.92)] ${
         hasAttention ? "attention-ring" : ""
       }`}
     >
       <div className="flex h-16 items-center gap-3 px-4 pt-1">
         <button
-          className="no-drag flex min-w-0 flex-1 items-center gap-3 rounded-full bg-[var(--bg-glass)] px-3 py-2 text-left"
+          className="no-drag flex min-w-0 flex-1 items-center gap-3 rounded-full border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-left"
           onClick={onToggleExpanded}
           type="button"
         >
@@ -89,25 +89,23 @@ export default function Capsule({
             {sessions.slice(0, 4).map((session) => (
               <span
                 key={session.id}
-                className={`flex h-7 w-7 items-center justify-center rounded-full text-[11px] font-semibold text-white ${
-                  session.hasPendingPermission
-                    ? "bg-[var(--accent)]"
-                    : session.needsUserAttention
-                      ? "bg-[var(--danger)]"
-                      : "bg-[var(--bg-strong)]"
+                className={`flex h-7 w-7 items-center justify-center rounded-full font-[var(--font-mono)] text-[11px] font-bold ${
+                  session.hasPendingPermission || session.needsUserAttention
+                    ? "border border-[var(--accent)] text-[var(--accent)]"
+                    : "border border-[var(--border-visible)] text-[var(--text-primary)]"
                 }`}
               >
                 {session.source.slice(0, 1).toUpperCase()}
               </span>
             ))}
             {sessions.length === 0 ? (
-              <span className="flex h-7 w-7 items-center justify-center rounded-full bg-black/10 text-[var(--text-secondary)]">
+              <span className="flex h-7 w-7 items-center justify-center rounded-full border border-[var(--border)] text-[var(--text-secondary)]">
                 <CircleDot className="h-4 w-4" />
               </span>
             ) : null}
           </div>
           <div className="min-w-0 flex-1">
-            <div className="truncate text-sm font-semibold text-[var(--text-primary)]">
+            <div className="truncate text-sm font-medium text-[var(--text-primary)]">
               {sessions.length <= 1 ? "AgentIsland" : `${sessions.length} 个活跃 session`}
             </div>
             <div className="truncate text-xs text-[var(--text-secondary)]">
@@ -120,7 +118,7 @@ export default function Capsule({
           </div>
         </button>
         <button
-          className="no-drag rounded-full bg-black/5 p-2 text-[var(--text-secondary)] hover:bg-black/8"
+          className="no-drag rounded-full border border-[var(--border)] p-2 text-[var(--text-secondary)] transition-colors duration-150 hover:border-[var(--border-visible)] hover:text-[var(--text-primary)]"
           onClick={onOpenSettings}
           type="button"
         >

@@ -117,23 +117,23 @@ export default function App() {
     <div className="min-h-screen bg-transparent p-3 text-[var(--text-primary)]">
       <motion.div
         {...enterMotion}
-        transition={{ duration: 0.34, ease: [0.22, 1, 0.36, 1] }}
-        className={`menu-panel mx-auto flex h-[520px] w-full max-w-[420px] flex-col overflow-hidden rounded-[22px] border border-[var(--line-strong)] bg-[var(--bg-shell-strong)] ${
+        transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+        className={`menu-panel mx-auto flex h-[520px] w-full max-w-[420px] flex-col overflow-hidden rounded-xl border border-[var(--border)] bg-[rgba(0,0,0,0.92)] ${
           hasAttention || permissionRequest ? "attention-ring" : ""
         }`}
       >
-        <div className="relative border-b border-[var(--line)] px-3 pb-3 pt-3">
+        <div className="relative border-b border-[var(--border)] px-3 pb-3 pt-3">
           <div className="flex items-center justify-between gap-3">
             <div className="flex min-w-0 flex-1 items-center gap-3">
-              <span className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-[var(--line)] bg-white">
+              <span className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--surface)]">
                 <img alt="AgentIsland" className="h-6 w-6 object-contain" src="/app-icon.png" />
               </span>
               <div className="min-w-0">
-                <div className="text-[1.2rem] font-semibold leading-none tracking-[-0.03em]">
+                <div className="font-[var(--font-display)] text-[1.2rem] font-semibold leading-none tracking-[-0.03em] text-[var(--text-display)]">
                   AgentIsland
                 </div>
                 {attentionText ? (
-                  <div className="mt-0.5 text-[13px] leading-snug text-[var(--text-secondary)]">
+                  <div className="mt-0.5 font-[var(--font-mono)] text-[11px] uppercase tracking-[0.04em] text-[var(--text-secondary)]">
                     {attentionText}
                   </div>
                 ) : null}
@@ -168,21 +168,21 @@ export default function App() {
               className="status-pill-inline"
               data-tone={metricTone(sessionSummary.running, "active")}
             >
-              <span className="font-semibold tabular-nums">{sessionSummary.running}</span>
+              <span className="font-[var(--font-mono)] font-bold tabular-nums">{sessionSummary.running}</span>
               <span>运行</span>
             </span>
             <span
               className="status-pill-inline"
               data-tone={metricTone(sessionSummary.idle, "idle")}
             >
-              <span className="font-semibold tabular-nums">{sessionSummary.idle}</span>
+              <span className="font-[var(--font-mono)] font-bold tabular-nums">{sessionSummary.idle}</span>
               <span>空闲</span>
             </span>
             <span
               className="status-pill-inline"
               data-tone={metricTone(sessionSummary.attention, "attention")}
             >
-              <span className="font-semibold tabular-nums">{sessionSummary.attention}</span>
+              <span className="font-[var(--font-mono)] font-bold tabular-nums">{sessionSummary.attention}</span>
               <span>待处理</span>
             </span>
           </div>
@@ -193,13 +193,13 @@ export default function App() {
             <motion.section
               initial={reduceMotion ? false : { opacity: 0, y: 10 }}
               animate={reduceMotion ? {} : { opacity: 1, y: 0 }}
-              transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
-              className="attention-banner rounded-xl border border-[rgba(217,128,47,0.22)] bg-[rgba(255,248,235,0.95)] px-3 py-3"
+              transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+              className="rounded-xl border border-[var(--border)] border-l-2 border-l-[var(--accent)] bg-[var(--surface)] px-3 py-3"
             >
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
-                  <div className="text-xs font-semibold text-[#9a3412]">需要处理</div>
-                  <div className="mt-1 text-sm font-semibold leading-snug tracking-[-0.01em]">
+                  <div className="font-[var(--font-mono)] text-[10px] font-bold uppercase tracking-[0.08em] text-[var(--accent)]">需要处理</div>
+                  <div className="mt-1 text-sm font-medium leading-snug tracking-[-0.01em]">
                     {attentionSession?.statusDetail ?? "请回到终端继续"}
                   </div>
                 </div>
@@ -220,8 +220,8 @@ export default function App() {
 
           <section className="panel-card rounded-xl p-3">
             <div className="flex items-center justify-between gap-2">
-              <h2 className="text-sm font-semibold tracking-[-0.02em]">会话</h2>
-              <span className="text-[11px] text-[var(--text-tertiary)]">
+              <h2 className="font-[var(--font-mono)] text-[11px] font-bold uppercase tracking-[0.08em] text-[var(--text-secondary)]">会话</h2>
+              <span className="font-[var(--font-mono)] text-[10px] text-[var(--text-disabled)]">
                 {hydrated ? `${sessions.length} 个` : "同步中…"}
               </span>
             </div>
@@ -233,17 +233,17 @@ export default function App() {
                     key={session.id}
                     initial={reduceMotion ? false : { opacity: 0, y: 8 }}
                     animate={reduceMotion ? {} : { opacity: 1, y: 0 }}
-                    transition={{ duration: 0.22, delay: 0.03 * index, ease: [0.22, 1, 0.36, 1] }}
+                    transition={{ duration: 0.2, delay: 0.03 * index, ease: [0.16, 1, 0.3, 1] }}
                   >
                     <SessionRow session={session} />
                   </motion.div>
                 ))}
               </div>
             ) : (
-              <div className="mt-3 rounded-lg border border-dashed border-[var(--line)] px-3 py-6 text-center">
-                <CircleDot className="mx-auto h-5 w-5 text-[var(--text-tertiary)]" aria-hidden />
-                <div className="mt-2 text-sm font-medium">暂无活跃会话</div>
-                <div className="mt-1 text-xs leading-5 text-[var(--text-secondary)]">
+              <div className="mt-3 rounded-lg border border-dashed border-[var(--border)] px-3 py-6 text-center">
+                <CircleDot className="mx-auto h-5 w-5 text-[var(--text-disabled)]" aria-hidden />
+                <div className="mt-2 text-sm font-medium text-[var(--text-secondary)]">暂无活跃会话</div>
+                <div className="mt-1 text-xs leading-5 text-[var(--text-disabled)]">
                   有新事件时菜单栏图标会更新。
                 </div>
               </div>
@@ -251,7 +251,7 @@ export default function App() {
           </section>
 
           {!hydrated ? (
-            <div className="rounded-lg border border-[var(--line)] bg-[var(--bg-muted)] px-2 py-1.5 text-center text-[11px] text-[var(--text-secondary)]">
+            <div className="rounded-lg border border-[var(--border)] bg-[var(--surface)] px-2 py-1.5 text-center font-[var(--font-mono)] text-[10px] uppercase tracking-[0.06em] text-[var(--text-secondary)]">
               正在同步…
             </div>
           ) : null}

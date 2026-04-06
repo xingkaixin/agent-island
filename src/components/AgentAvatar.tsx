@@ -14,16 +14,15 @@ const labelBySource: Record<AgentSource, string> = {
 };
 
 function statusTone(status?: SessionStatus, highlighted?: boolean) {
-  if (highlighted || status === "permission") {
-    return "border-[rgba(59,126,255,0.22)] bg-[rgba(235,243,255,0.94)] shadow-[0_8px_20px_rgba(59,126,255,0.12)]";
+  if (
+    highlighted ||
+    status === "permission" ||
+    status === "attention" ||
+    status === "error"
+  ) {
+    return "border-[var(--accent)]";
   }
-  if (status === "attention" || status === "error") {
-    return "border-[rgba(224,66,79,0.18)] bg-[rgba(255,242,243,0.94)] shadow-[0_8px_20px_rgba(224,66,79,0.10)]";
-  }
-  if (status === "idle" || status === "done") {
-    return "border-[rgba(80,100,160,0.11)] bg-[rgba(255,255,255,0.82)]";
-  }
-  return "border-[rgba(34,166,99,0.14)] bg-[rgba(240,252,246,0.94)] shadow-[0_8px_20px_rgba(34,166,99,0.08)]";
+  return "border-[var(--border-visible)]";
 }
 
 interface AgentAvatarProps {
@@ -46,8 +45,7 @@ export default function AgentAvatar({
   return (
     <span
       className={clsx(
-        "relative flex shrink-0 items-center justify-center overflow-hidden rounded-full border transition-transform duration-200 ease-[var(--ease-out)]",
-        "before:absolute before:inset-[1px] before:rounded-full before:bg-[linear-gradient(180deg,rgba(255,255,255,0.58),rgba(255,255,255,0))] before:content-['']",
+        "relative flex shrink-0 items-center justify-center overflow-hidden rounded-full border bg-[var(--surface-raised)]",
         statusTone(status, highlighted),
         size === "sm" ? "h-9 w-9" : "h-11 w-11",
       )}
