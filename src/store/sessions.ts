@@ -1,4 +1,4 @@
-import { create } from "zustand";
+import { create } from 'zustand';
 import type {
   AppStateSnapshot,
   InstallStatusItem,
@@ -6,7 +6,7 @@ import type {
   PermissionRequestView,
   SessionView,
   UserPreferences,
-} from "../types/agent";
+} from '../types/agent';
 
 const defaultPreferences: UserPreferences = {
   notificationsEnabled: false,

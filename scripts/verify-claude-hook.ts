@@ -1,19 +1,19 @@
 #!/usr/bin/env bun
 
-import { spawn } from "node:child_process";
-import { homedir } from "node:os";
-import { join } from "node:path";
+import { spawn } from 'node:child_process';
+import { homedir } from 'node:os';
+import { join } from 'node:path';
 
-const bridgePath = join(homedir(), ".agentisland", "bin", "agentisland-bridge");
+const bridgePath = join(homedir(), '.agentisland', 'bin', 'agentisland-bridge');
 const cwd = process.cwd();
-const scenario = process.argv[2] ?? "full";
+const scenario = process.argv[2] ?? 'full';
 
 type HookPayload = Record<string, unknown>;
 
 function payload(hookEventName: string, extra: HookPayload = {}) {
   return {
     hookEventName,
-    sessionId: "claude-real-hook-demo",
+    sessionId: 'claude-real-hook-demo',
     cwd,
     ...extra,
   };
@@ -21,32 +21,32 @@ function payload(hookEventName: string, extra: HookPayload = {}) {
 
 const scenarios: Record<string, HookPayload[]> = {
   running: [
-    payload("SessionStart"),
-    payload("UserPromptSubmit"),
-    payload("PreToolUse", { toolName: "Read" }),
-    payload("PostToolUse", { toolName: "Read" }),
+    payload('SessionStart'),
+    payload('UserPromptSubmit'),
+    payload('PreToolUse', { toolName: 'Read' }),
+    payload('PostToolUse', { toolName: 'Read' }),
   ],
-  attention: [payload("Notification", { message: "需要你回到终端确认下一步" })],
+  attention: [payload('Notification', { message: '需要你回到终端确认下一步' })],
   permission: [
-    payload("PermissionRequest", {
-      requestId: "claude-real-hook-demo-request",
-      toolName: "Bash",
-      summary: "请求执行 bun run tauri dev",
-      toolArgs: { cmd: "bun run tauri dev" },
+    payload('PermissionRequest', {
+      requestId: 'claude-real-hook-demo-request',
+      toolName: 'Bash',
+      summary: '请求执行 bun run tauri dev',
+      toolArgs: { cmd: 'bun run tauri dev' },
     }),
   ],
-  stop: [payload("Stop")],
+  stop: [payload('Stop')],
   full: [
-    payload("SessionStart"),
-    payload("UserPromptSubmit"),
-    payload("Notification", { message: "需要你回到终端确认下一步" }),
-    payload("PermissionRequest", {
-      requestId: "claude-real-hook-demo-request",
-      toolName: "Bash",
-      summary: "请求执行 bun run tauri dev",
-      toolArgs: { cmd: "bun run tauri dev" },
+    payload('SessionStart'),
+    payload('UserPromptSubmit'),
+    payload('Notification', { message: '需要你回到终端确认下一步' }),
+    payload('PermissionRequest', {
+      requestId: 'claude-real-hook-demo-request',
+      toolName: 'Bash',
+      summary: '请求执行 bun run tauri dev',
+      toolArgs: { cmd: 'bun run tauri dev' },
     }),
-    payload("Stop"),
+    payload('Stop'),
   ],
 };
 
@@ -54,7 +54,7 @@ const selected = scenarios[scenario];
 
 if (!selected) {
   console.error(`Unknown scenario: ${scenario}`);
-  console.error(`Available: ${Object.keys(scenarios).join(", ")}`);
+  console.error(`Available: ${Object.keys(scenarios).join(', ')}`);
   process.exit(1);
 }
 
@@ -64,20 +64,20 @@ for (const item of selected) {
 
 async function runBridge(item: HookPayload) {
   await new Promise<void>((resolve, reject) => {
-    const child = spawn(bridgePath, ["--source", "claude"], {
-      stdio: ["pipe", "pipe", "inherit"],
+    const child = spawn(bridgePath, ['--source', 'claude'], {
+      stdio: ['pipe', 'pipe', 'inherit'],
     });
 
-    let stdout = "";
-    child.stdout.on("data", (chunk) => {
-      stdout += chunk.toString("utf8");
+    let stdout = '';
+    child.stdout.on('data', (chunk) => {
+      stdout += chunk.toString('utf8');
     });
 
-    child.on("error", (error) => {
+    child.on('error', (error) => {
       reject(error);
     });
 
-    child.on("close", (code) => {
+    child.on('close', (code) => {
       if (code !== 0) {
         reject(new Error(`bridge exited with code ${code}`));
         return;

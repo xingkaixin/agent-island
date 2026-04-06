@@ -1,21 +1,21 @@
-export type AgentSource = "claude" | "codex" | "cursor";
+export type AgentSource = 'claude' | 'codex' | 'cursor';
 
 export type SessionStatus =
-  | "idle"
-  | "running"
-  | "thinking"
-  | "tool"
-  | "shell"
-  | "mcp"
-  | "file"
-  | "compact"
-  | "permission"
-  | "attention"
-  | "done"
-  | "error";
+  | 'idle'
+  | 'running'
+  | 'thinking'
+  | 'tool'
+  | 'shell'
+  | 'mcp'
+  | 'file'
+  | 'compact'
+  | 'permission'
+  | 'attention'
+  | 'done'
+  | 'error';
 
 export interface PermissionDecisionPayload {
-  decision: "approve" | "deny";
+  decision: 'approve' | 'deny';
   reason?: string | null;
 }
 
@@ -82,7 +82,7 @@ export interface TimelineLogEntry {
   sessionId?: string | null;
   kind: string;
   createdAt: string;
-  channel: "event" | "bridge";
+  channel: 'event' | 'bridge';
   stage?: string | null;
   raw: string;
 }

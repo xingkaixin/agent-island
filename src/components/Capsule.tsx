@@ -1,7 +1,7 @@
-import { motion } from "framer-motion";
-import { BellRing, CircleDot, ListTree, Settings2 } from "lucide-react";
-import type { SessionView } from "../types/agent";
-import SessionRow from "./SessionRow";
+import { motion } from 'framer-motion';
+import { BellRing, CircleDot, ListTree, Settings2 } from 'lucide-react';
+import type { SessionView } from '../types/agent';
+import SessionRow from './SessionRow';
 
 interface CapsuleProps {
   sessions: SessionView[];
@@ -13,11 +13,7 @@ interface CapsuleProps {
   children?: React.ReactNode;
 }
 
-export function capsuleWidth(
-  sessions: SessionView[],
-  hasPermission: boolean,
-  expanded: boolean,
-) {
+export function capsuleWidth(sessions: SessionView[], hasPermission: boolean, expanded: boolean) {
   if (hasPermission) {
     return 420;
   }
@@ -33,11 +29,7 @@ export function capsuleWidth(
   return 120;
 }
 
-export function capsuleHeight(
-  sessions: SessionView[],
-  hasPermission: boolean,
-  expanded: boolean,
-) {
+export function capsuleHeight(sessions: SessionView[], hasPermission: boolean, expanded: boolean) {
   if (hasPermission) {
     return 320;
   }
@@ -52,7 +44,7 @@ export function capsuleHeight(
 
 function labelForSession(session: SessionView | undefined) {
   if (!session) {
-    return "暂无活跃 session";
+    return '暂无活跃 session';
   }
   return session.statusDetail;
 }
@@ -76,7 +68,7 @@ export default function Capsule({
       }}
       transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
       className={`window-drag mx-auto mt-0 overflow-hidden rounded-b-xl border border-[var(--border)] bg-[rgba(0,0,0,0.92)] ${
-        hasAttention ? "attention-ring" : ""
+        hasAttention ? 'attention-ring' : ''
       }`}
     >
       <div className="flex h-16 items-center gap-3 px-4 pt-1">
@@ -91,8 +83,8 @@ export default function Capsule({
                 key={session.id}
                 className={`flex h-7 w-7 items-center justify-center rounded-full font-[var(--font-mono)] text-[11px] font-bold ${
                   session.hasPendingPermission || session.needsUserAttention
-                    ? "border border-[var(--accent)] text-[var(--accent)]"
-                    : "border border-[var(--border-visible)] text-[var(--text-primary)]"
+                    ? 'border border-[var(--accent)] text-[var(--accent)]'
+                    : 'border border-[var(--border-visible)] text-[var(--text-primary)]'
                 }`}
               >
                 {session.source.slice(0, 1).toUpperCase()}
@@ -106,7 +98,7 @@ export default function Capsule({
           </div>
           <div className="min-w-0 flex-1">
             <div className="truncate text-sm font-medium text-[var(--text-primary)]">
-              {sessions.length <= 1 ? "AgentIsland" : `${sessions.length} 个活跃 session`}
+              {sessions.length <= 1 ? 'AgentIsland' : `${sessions.length} 个活跃 session`}
             </div>
             <div className="truncate text-xs text-[var(--text-secondary)]">
               {labelForSession(primarySession)}

@@ -1,27 +1,27 @@
-import { useMemo, useState } from "react";
-import { ChevronDown, ChevronRight, RefreshCw, Trash2 } from "lucide-react";
-import { clearLogs } from "../lib/tauri";
-import type { AgentSource, TimelineLogEntry } from "../types/agent";
-import AgentAvatar, { agentSourceLabel } from "./AgentAvatar";
+import { useMemo, useState } from 'react';
+import { ChevronDown, ChevronRight, RefreshCw, Trash2 } from 'lucide-react';
+import { clearLogs } from '../lib/tauri';
+import type { AgentSource, TimelineLogEntry } from '../types/agent';
+import AgentAvatar, { agentSourceLabel } from './AgentAvatar';
 
-const agents: AgentSource[] = ["claude", "codex", "cursor"];
+const agents: AgentSource[] = ['claude', 'codex', 'cursor'];
 
 function formatTime(value: string) {
-  return new Date(value).toLocaleString("zh-CN", {
+  return new Date(value).toLocaleString('zh-CN', {
     hour12: false,
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
   });
 }
 
 function entryStageLabel(entry: TimelineLogEntry) {
-  if (entry.channel === "bridge") {
-    return entry.stage ? `bridge / ${entry.stage}` : "bridge";
+  if (entry.channel === 'bridge') {
+    return entry.stage ? `bridge / ${entry.stage}` : 'bridge';
   }
-  return "hook";
+  return 'hook';
 }
 
 interface LogCenterProps {
@@ -42,7 +42,7 @@ export default function LogCenter({
   const [selectedSources, setSelectedSources] = useState<AgentSource[]>([]);
   const [selectedKinds, setSelectedKinds] = useState<string[]>([]);
   const [selectedSessionIds, setSelectedSessionIds] = useState<string[]>([]);
-  const [viewMode, setViewMode] = useState<"all" | "event" | "bridge">("all");
+  const [viewMode, setViewMode] = useState<'all' | 'event' | 'bridge'>('all');
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [clearing, setClearing] = useState(false);
   const [confirmingClear, setConfirmingClear] = useState(false);
@@ -69,7 +69,7 @@ export default function LogCenter({
   const filteredEntries = useMemo(
     () =>
       entries.filter((entry) => {
-        if (viewMode !== "all" && entry.channel !== viewMode) {
+        if (viewMode !== 'all' && entry.channel !== viewMode) {
           return false;
         }
         if (selectedSources.length > 0 && !selectedSources.includes(entry.source)) {
@@ -90,7 +90,7 @@ export default function LogCenter({
   );
   const hasAnyLogs = entries.length > 0;
   const hasActiveFilters =
-    viewMode !== "all" ||
+    viewMode !== 'all' ||
     selectedSources.length > 0 ||
     selectedKinds.length > 0 ||
     selectedSessionIds.length > 0;
@@ -141,7 +141,7 @@ export default function LogCenter({
       onRefresh();
       setExpandedId(null);
     } catch (e) {
-      setClearError(e instanceof Error ? e.message : "清空失败");
+      setClearError(e instanceof Error ? e.message : '清空失败');
     } finally {
       setClearing(false);
     }
@@ -159,7 +159,9 @@ export default function LogCenter({
         <div className="log-danger-panel mt-4 rounded-xl border px-4 py-3">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="min-w-0">
-              <div className="font-[var(--font-mono)] text-[10px] font-bold uppercase tracking-[0.08em] text-[var(--accent)]">确认清空日志</div>
+              <div className="font-[var(--font-mono)] text-[10px] font-bold uppercase tracking-[0.08em] text-[var(--accent)]">
+                确认清空日志
+              </div>
               <p className="mt-1 text-xs leading-5 text-[var(--text-secondary)]">
                 会删除 Hook 事件与 bridge 诊断，并清空磁盘上的事件记录。这个操作不可撤销。
               </p>
@@ -184,7 +186,7 @@ export default function LogCenter({
                 onClick={() => void handleConfirmClearLogs()}
                 type="button"
               >
-                {clearing ? "清空中..." : "确认清空"}
+                {clearing ? '清空中...' : '确认清空'}
               </button>
             </div>
           </div>
@@ -203,30 +205,26 @@ export default function LogCenter({
             <div className="log-toolbar-summary flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
               <span className="log-toolbar-label">日志筛选</span>
               <div className="log-match-count text-[11px] text-[var(--text-secondary)]">
-                匹配{" "}
+                匹配{' '}
                 <span className="font-[var(--font-mono)] font-bold tabular-nums text-[var(--text-primary)]">
                   {filteredEntries.length}
-                </span>{" "}
+                </span>{' '}
                 条
               </div>
             </div>
             <div className="log-toolbar-actions flex flex-wrap items-center justify-end gap-2">
-              <button
-                className="log-toolbar-btn secondary-button"
-                onClick={onBack}
-                type="button"
-              >
+              <button className="log-toolbar-btn secondary-button" onClick={onBack} type="button">
                 返回设置
               </button>
               <button
                 className="log-toolbar-btn log-toolbar-btn-danger ghost-button hook-ghost-btn disabled:opacity-40"
                 disabled={clearing || loading || !hasAnyLogs}
                 onClick={requestClearLogs}
-                title={!hasAnyLogs ? "当前没有可清理的日志" : undefined}
+                title={!hasAnyLogs ? '当前没有可清理的日志' : undefined}
                 type="button"
               >
                 <Trash2 className="h-3.5 w-3.5" aria-hidden />
-                {confirmingClear ? "等待确认" : "清空日志"}
+                {confirmingClear ? '等待确认' : '清空日志'}
               </button>
               <button
                 className="log-toolbar-icon-btn icon-button no-drag"
@@ -234,7 +232,7 @@ export default function LogCenter({
                 onClick={onRefresh}
                 type="button"
               >
-                <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} aria-hidden />
+                <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} aria-hidden />
                 <span className="sr-only">刷新</span>
               </button>
             </div>
@@ -245,9 +243,9 @@ export default function LogCenter({
               <div className="log-segmented-control" role="group" aria-label="视图筛选">
                 {(
                   [
-                    ["all", "全部"],
-                    ["event", "Hook"],
-                    ["bridge", "Bridge"],
+                    ['all', '全部'],
+                    ['event', 'Hook'],
+                    ['bridge', 'Bridge'],
                   ] as const
                 ).map(([value, label]) => (
                   <button
@@ -339,9 +337,15 @@ export default function LogCenter({
                   type="button"
                 >
                   {open ? (
-                    <ChevronDown className="mt-0.5 h-4 w-4 shrink-0 text-[var(--text-secondary)]" aria-hidden />
+                    <ChevronDown
+                      className="mt-0.5 h-4 w-4 shrink-0 text-[var(--text-secondary)]"
+                      aria-hidden
+                    />
                   ) : (
-                    <ChevronRight className="mt-0.5 h-4 w-4 shrink-0 text-[var(--text-secondary)]" aria-hidden />
+                    <ChevronRight
+                      className="mt-0.5 h-4 w-4 shrink-0 text-[var(--text-secondary)]"
+                      aria-hidden
+                    />
                   )}
                   <div className="mt-0.5 shrink-0">
                     <AgentAvatar
@@ -349,7 +353,7 @@ export default function LogCenter({
                       source={
                         agents.includes(entry.source as AgentSource)
                           ? (entry.source as AgentSource)
-                          : "codex"
+                          : 'codex'
                       }
                     />
                   </div>

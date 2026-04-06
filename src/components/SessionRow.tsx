@@ -1,56 +1,60 @@
-import { useState } from "react";
-import clsx from "clsx";
-import { X } from "lucide-react";
-import { forceRemoveSession } from "../lib/tauri";
-import type { SessionView } from "../types/agent";
-import AgentAvatar from "./AgentAvatar";
+import { useState } from 'react';
+import clsx from 'clsx';
+import { X } from 'lucide-react';
+import { forceRemoveSession } from '../lib/tauri';
+import type { SessionView } from '../types/agent';
+import AgentAvatar from './AgentAvatar';
 
 function statusLabel(session: SessionView) {
   switch (session.status) {
-    case "idle":
-      return "空闲";
-    case "thinking":
-      return "思考中";
-    case "tool":
-      return "调用工具";
-    case "shell":
-      return "执行命令";
-    case "mcp":
-      return "调用 MCP";
-    case "file":
-      return "读写文件";
-    case "compact":
-      return "压缩上下文";
-    case "attention":
-      return "需要处理";
-    case "done":
-      return "已结束";
-    case "error":
-      return "出错";
+    case 'idle':
+      return '空闲';
+    case 'thinking':
+      return '思考中';
+    case 'tool':
+      return '调用工具';
+    case 'shell':
+      return '执行命令';
+    case 'mcp':
+      return '调用 MCP';
+    case 'file':
+      return '读写文件';
+    case 'compact':
+      return '压缩上下文';
+    case 'attention':
+      return '需要处理';
+    case 'done':
+      return '已结束';
+    case 'error':
+      return '出错';
     default:
-      return "运行中";
+      return '运行中';
   }
 }
 
 function statusTone(session: SessionView) {
-  if (session.hasPendingPermission || session.needsUserAttention || session.status === "attention") {
-    return "attention";
+  if (
+    session.hasPendingPermission ||
+    session.needsUserAttention ||
+    session.status === 'attention'
+  ) {
+    return 'attention';
   }
-  if (session.status === "error") {
-    return "error";
+  if (session.status === 'error') {
+    return 'error';
   }
-  if (session.status === "idle" || session.status === "done") {
-    return "idle";
+  if (session.status === 'idle' || session.status === 'done') {
+    return 'idle';
   }
-  return "active";
+  return 'active';
 }
 
 function formatWorkspaceLabel(cwd?: string | null) {
   if (!cwd) {
-    return "未提供路径";
+    return '未提供路径';
   }
 
-  const trimmed = cwd.replace(/[\\/]+$/, "");
+  const trimmed = cwd.replace(/[\\/]+$/, '');
   if (!trimmed) {
     return cwd;
   }
@@ -84,7 +88,10 @@ export default function SessionRow({ session }: { session: SessionView }) {
   }
 
   return (
-    <div className="session-row session-row-accent flex items-center gap-3 rounded-xl px-3 py-2.5" data-tone={tone}>
+    <div
+      className="session-row session-row-accent flex items-center gap-3 rounded-xl px-3 py-2.5"
+      data-tone={tone}
+    >
       <AgentAvatar
         highlighted={session.hasPendingPermission || session.needsUserAttention}
         source={session.source}
@@ -92,17 +99,12 @@ export default function SessionRow({ session }: { session: SessionView }) {
       />
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
-          <span
-            className={clsx(
-              "session-status-badge rounded-full px-2.5 py-1",
-            )}
-            data-tone={tone}
-          >
+          <span className={clsx('session-status-badge rounded-full px-2.5 py-1')} data-tone={tone}>
             {statusLabel(session)}
           </span>
         </div>
         <div className="session-path mt-2 truncate">{formatWorkspaceLabel(session.cwd)}</div>
-        {session.source === "claude" && session.launcher?.name ? (
+        {session.source === 'claude' && session.launcher?.name ? (
           <div className="mt-2 flex items-center gap-2 text-xs text-[var(--text-secondary)]">
             {iconSrc ? (
               <img

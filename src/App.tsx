@@ -1,26 +1,26 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import { getCurrentWindow } from "@tauri-apps/api/window";
-import { motion, useReducedMotion } from "framer-motion";
-import { CircleDot, LogOut, Settings2 } from "lucide-react";
-import SessionRow from "./components/SessionRow";
-import Settings from "./components/Settings";
-import AgentAvatar from "./components/AgentAvatar";
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { getCurrentWindow } from '@tauri-apps/api/window';
+import { motion, useReducedMotion } from 'framer-motion';
+import { CircleDot, LogOut, Settings2 } from 'lucide-react';
+import SessionRow from './components/SessionRow';
+import Settings from './components/Settings';
+import AgentAvatar from './components/AgentAvatar';
 import {
   getAppState,
   getCurrentWindowLabel,
   onAppStateUpdated,
   openSettingsWindow,
   quitApp,
-} from "./lib/tauri";
-import { useSessionStore } from "./store/sessions";
-import type { SessionView } from "./types/agent";
+} from './lib/tauri';
+import { useSessionStore } from './store/sessions';
+import type { SessionView } from './types/agent';
 
 function summarizeSessions(sessions: SessionView[]) {
   return sessions.reduce(
     (summary, session) => {
       if (session.hasPendingPermission || session.needsUserAttention) {
         summary.attention += 1;
-      } else if (session.status === "idle") {
+      } else if (session.status === 'idle') {
         summary.idle += 1;
       } else {
         summary.running += 1;
@@ -31,13 +31,13 @@ function summarizeSessions(sessions: SessionView[]) {
   );
 }
 
-function metricTone(value: number, tone: "active" | "idle" | "attention") {
-  return value > 0 ? tone : "idle";
+function metricTone(value: number, tone: 'active' | 'idle' | 'attention') {
+  return value > 0 ? tone : 'idle';
 }
 
 export default function App() {
   const { hydrated, sessions, permissionRequest, replaceState } = useSessionStore();
-  const [windowLabel, setWindowLabel] = useState("main");
+  const [windowLabel, setWindowLabel] = useState('main');
   const reduceMotion = useReducedMotion();
   const focusParkingRef = useRef<HTMLDivElement>(null);
 
@@ -59,7 +59,7 @@ export default function App() {
         return;
       }
       window.addEventListener(
-        "beforeunload",
+        'beforeunload',
         () => {
           unlisten();
         },
@@ -96,7 +96,7 @@ export default function App() {
   };
 
   useEffect(() => {
-    if (windowLabel !== "main") {
+    if (windowLabel !== 'main') {
       return;
     }
     parkInitialFocus();
@@ -113,11 +113,11 @@ export default function App() {
     };
   }, [windowLabel]);
 
-  if (windowLabel === "settings") {
+  if (windowLabel === 'settings') {
     return <Settings />;
   }
 
-  const attentionText = permissionRequest || hasAttention ? "需要你回到终端处理" : null;
+  const attentionText = permissionRequest || hasAttention ? '需要你回到终端处理' : null;
 
   const enterMotion = reduceMotion
     ? {}
@@ -125,17 +125,12 @@ export default function App() {
 
   return (
     <div className="h-screen bg-transparent p-3 text-[var(--text-primary)]">
-      <div
-        ref={focusParkingRef}
-        aria-hidden="true"
-        className="sr-only"
-        tabIndex={-1}
-      />
+      <div ref={focusParkingRef} aria-hidden="true" className="sr-only" tabIndex={-1} />
       <motion.div
         {...enterMotion}
         transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
         className={`menu-panel mx-auto flex h-full max-h-full w-full max-w-[420px] flex-col overflow-hidden rounded-xl border border-[var(--border)] bg-[rgba(0,0,0,0.92)] ${
-          hasAttention || permissionRequest ? "attention-ring" : ""
+          hasAttention || permissionRequest ? 'attention-ring' : ''
         }`}
       >
         <div className="relative border-b border-[var(--border)] px-3 pb-3 pt-3">
@@ -182,23 +177,29 @@ export default function App() {
           <div className="mt-3 flex flex-wrap gap-1.5">
             <span
               className="status-pill-inline"
-              data-tone={metricTone(sessionSummary.running, "active")}
+              data-tone={metricTone(sessionSummary.running, 'active')}
             >
-              <span className="font-[var(--font-mono)] font-bold tabular-nums">{sessionSummary.running}</span>
+              <span className="font-[var(--font-mono)] font-bold tabular-nums">
+                {sessionSummary.running}
+              </span>
               <span>运行</span>
             </span>
             <span
               className="status-pill-inline"
-              data-tone={metricTone(sessionSummary.idle, "idle")}
+              data-tone={metricTone(sessionSummary.idle, 'idle')}
             >
-              <span className="font-[var(--font-mono)] font-bold tabular-nums">{sessionSummary.idle}</span>
+              <span className="font-[var(--font-mono)] font-bold tabular-nums">
+                {sessionSummary.idle}
+              </span>
               <span>空闲</span>
             </span>
             <span
               className="status-pill-inline"
-              data-tone={metricTone(sessionSummary.attention, "attention")}
+              data-tone={metricTone(sessionSummary.attention, 'attention')}
             >
-              <span className="font-[var(--font-mono)] font-bold tabular-nums">{sessionSummary.attention}</span>
+              <span className="font-[var(--font-mono)] font-bold tabular-nums">
+                {sessionSummary.attention}
+              </span>
               <span>待处理</span>
             </span>
           </div>
@@ -214,9 +215,11 @@ export default function App() {
             >
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
-                  <div className="font-[var(--font-mono)] text-[10px] font-bold uppercase tracking-[0.08em] text-[var(--accent)]">需要处理</div>
+                  <div className="font-[var(--font-mono)] text-[10px] font-bold uppercase tracking-[0.08em] text-[var(--accent)]">
+                    需要处理
+                  </div>
                   <div className="mt-1 text-sm font-medium leading-snug tracking-[-0.01em]">
-                    {attentionSession?.statusDetail ?? "请回到终端继续"}
+                    {attentionSession?.statusDetail ?? '请回到终端继续'}
                   </div>
                 </div>
                 {attentionSession ? (
@@ -236,9 +239,11 @@ export default function App() {
 
           <section className="panel-card flex min-h-0 flex-1 flex-col rounded-xl p-3">
             <div className="flex items-center justify-between gap-2">
-              <h2 className="font-[var(--font-mono)] text-[11px] font-bold uppercase tracking-[0.08em] text-[var(--text-secondary)]">会话</h2>
+              <h2 className="font-[var(--font-mono)] text-[11px] font-bold uppercase tracking-[0.08em] text-[var(--text-secondary)]">
+                会话
+              </h2>
               <span className="font-[var(--font-mono)] text-[10px] text-[var(--text-disabled)]">
-                {hydrated ? `${sessions.length} 个` : "同步中…"}
+                {hydrated ? `${sessions.length} 个` : '同步中…'}
               </span>
             </div>
 
@@ -258,7 +263,9 @@ export default function App() {
             ) : (
               <div className="mt-3 rounded-lg border border-dashed border-[var(--border)] px-3 py-6 text-center">
                 <CircleDot className="mx-auto h-5 w-5 text-[var(--text-disabled)]" aria-hidden />
-                <div className="mt-2 text-sm font-medium text-[var(--text-secondary)]">暂无活跃会话</div>
+                <div className="mt-2 text-sm font-medium text-[var(--text-secondary)]">
+                  暂无活跃会话
+                </div>
                 <div className="mt-1 text-xs leading-5 text-[var(--text-disabled)]">
                   有新事件时菜单栏图标会更新。
                 </div>
