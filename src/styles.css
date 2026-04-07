@@ -329,13 +329,13 @@ input {
   letter-spacing: 0.06em;
   text-transform: uppercase;
   transition:
+    background-color var(--duration-fast) var(--ease-out),
     border-color var(--duration-fast) var(--ease-out),
-    opacity var(--duration-fast) var(--ease-out);
+    color var(--duration-fast) var(--ease-out);
 }
 
 .settings-action-btn:disabled {
   cursor: default;
-  opacity: 0.4;
 }
 
 /* ─── Hook Buttons ─── */
@@ -348,8 +348,8 @@ input {
 
 .hook-primary-btn:disabled {
   border-color: var(--border-visible);
-  background: var(--border-visible);
-  color: var(--text-disabled);
+  background: #262626;
+  color: var(--text-secondary);
 }
 
 .hook-primary-btn:hover:not(:disabled) {
@@ -363,8 +363,9 @@ input {
 }
 
 .hook-secondary-btn:disabled {
-  border-color: var(--border);
-  color: var(--text-disabled);
+  border-color: var(--border-visible);
+  background: #1a1a1a;
+  color: var(--text-secondary);
 }
 
 .hook-secondary-btn:hover:not(:disabled) {
