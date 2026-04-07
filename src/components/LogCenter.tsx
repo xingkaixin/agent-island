@@ -159,14 +159,14 @@ export default function LogCenter({
         <div className="log-danger-panel mt-4 rounded-xl border px-4 py-3">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="min-w-0">
-              <div className="font-[var(--font-mono)] text-[10px] font-bold uppercase tracking-[0.08em] text-[var(--accent)]">
+              <div className="font-[var(--font-mono)] text-[10px] font-bold uppercase tracking-[0.08em] text-[var(--text-primary)]">
                 确认清空日志
               </div>
               <p className="mt-1 text-xs leading-5 text-[var(--text-secondary)]">
                 会删除 Hook 事件与 bridge 诊断，并清空磁盘上的事件记录。这个操作不可撤销。
               </p>
               {hasActiveFilters ? (
-                <p className="mt-1 text-xs leading-5 text-[var(--accent)]">
+                <p className="mt-1 text-xs leading-5 text-[var(--text-primary)]">
                   当前已应用筛选条件，但确认后仍会清空全部日志，不仅是当前筛选结果。
                 </p>
               ) : null}
@@ -181,7 +181,7 @@ export default function LogCenter({
                 取消
               </button>
               <button
-                className="log-toolbar-btn log-toolbar-btn-danger ghost-button disabled:opacity-40"
+                className="log-toolbar-btn log-toolbar-btn-danger danger-button disabled:opacity-40"
                 disabled={clearing}
                 onClick={() => void handleConfirmClearLogs()}
                 type="button"
@@ -217,7 +217,7 @@ export default function LogCenter({
                 返回设置
               </button>
               <button
-                className="log-toolbar-btn log-toolbar-btn-danger ghost-button hook-ghost-btn disabled:opacity-40"
+                className="log-toolbar-btn log-toolbar-btn-danger danger-button disabled:opacity-40"
                 disabled={clearing || loading || !hasAnyLogs}
                 onClick={requestClearLogs}
                 title={!hasAnyLogs ? '当前没有可清理的日志' : undefined}

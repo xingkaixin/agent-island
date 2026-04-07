@@ -134,4 +134,21 @@ describe('LogCenter', () => {
     expect(within(toolbar).getByRole('button', { name: '清空日志' })).toBeInTheDocument();
     expect(within(toolbar).getByRole('button', { name: '刷新' })).toBeInTheDocument();
   });
+
+  it('仅对破坏性操作使用 danger-button 样式', async () => {
+    const user = userEvent.setup();
+
+    renderLogCenter();
+
+    const backButton = screen.getByRole('button', { name: '返回设置' });
+    const clearButton = screen.getByRole('button', { name: '清空日志' });
+
+    expect(backButton.className).not.toContain('danger-button');
+    expect(clearButton.className).toContain('danger-button');
+
+    await user.click(clearButton);
+
+    expect(screen.getByRole('button', { name: '确认清空' }).className).toContain('danger-button');
+    expect(screen.getByRole('button', { name: '取消' }).className).not.toContain('danger-button');
+  });
 });
