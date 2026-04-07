@@ -31,41 +31,70 @@ const POPUP_TOP_MARGIN: f64 = 6.0;
 const LOG_RETENTION_DAYS: i64 = 3;
 const LOG_PRUNE_INTERVAL_SECS: u64 = 60 * 60;
 const SESSION_REFRESH_INTERVAL_MS: u64 = 2_000;
+const TRAY_TICK_MS: u64 = 125;
 
 #[derive(Clone, Copy)]
 struct TrayAnchor {
     rect: Rect,
 }
 
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum MenuBarState {
     Idle,
-    Running,
-    Attention,
+    Working,
+    Ask,
 }
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 struct MenuBarSummary {
-    running_count: usize,
+    ask_count: usize,
+    working_count: usize,
     idle_count: usize,
-    attention_count: usize,
 }
 
-/// Distinguishes tray PNG + running animation frame. Idle/Attention ignore `phase`.
+#[derive(Clone, Copy)]
+struct TrayAnimation {
+    frame_count: usize,
+    frame_duration_ms: u64,
+}
+
 #[derive(Clone, Copy, PartialEq, Eq)]
 struct TrayIconKey {
     state: MenuBarState,
-    /// 0/1 when `state == Running`; always 0 otherwise.
-    running_frame: u8,
+    frame: u8,
 }
 
-fn tray_icon_key(state: MenuBarState, phase: usize) -> TrayIconKey {
+fn tray_animation(state: MenuBarState) -> TrayAnimation {
+    match state {
+        MenuBarState::Ask => TrayAnimation {
+            frame_count: 6,
+            frame_duration_ms: 200,
+        },
+        MenuBarState::Working => TrayAnimation {
+            frame_count: 4,
+            frame_duration_ms: 125,
+        },
+        MenuBarState::Idle => TrayAnimation {
+            frame_count: 1,
+            frame_duration_ms: 1_000,
+        },
+    }
+}
+
+fn tray_frame(state: MenuBarState, tick: usize) -> usize {
+    let animation = tray_animation(state);
+    if animation.frame_count <= 1 {
+        return 0;
+    }
+
+    let elapsed_ms = tick as u64 * TRAY_TICK_MS;
+    ((elapsed_ms / animation.frame_duration_ms) % animation.frame_count as u64) as usize
+}
+
+fn tray_icon_key(state: MenuBarState, tick: usize) -> TrayIconKey {
     TrayIconKey {
         state,
-        running_frame: match state {
-            MenuBarState::Running => (phase % 2) as u8,
-            _ => 0,
-        },
+        frame: tray_frame(state, tick) as u8,
     }
 }
 
@@ -102,15 +131,19 @@ fn derive_menu_bar_state(snapshot: &AppStateSnapshot) -> MenuBarState {
         || snapshot
             .sessions
             .iter()
-            .any(|session| session.needs_user_attention)
+            .any(|session| session.has_pending_permission || session.needs_user_attention)
     {
-        return MenuBarState::Attention;
+        return MenuBarState::Ask;
     }
-    if snapshot.sessions.is_empty() {
-        MenuBarState::Idle
-    } else {
-        MenuBarState::Running
+    if snapshot
+        .sessions
+        .iter()
+        .any(|session| session.status != "idle")
+    {
+        return MenuBarState::Working;
     }
+
+    MenuBarState::Idle
 }
 
 fn derive_menu_bar_summary(snapshot: &AppStateSnapshot) -> MenuBarSummary {
@@ -118,40 +151,52 @@ fn derive_menu_bar_summary(snapshot: &AppStateSnapshot) -> MenuBarSummary {
         MenuBarSummary::default(),
         |mut summary, session| {
             if session.has_pending_permission || session.needs_user_attention {
-                summary.attention_count += 1;
+                summary.ask_count += 1;
             } else if session.status == "idle" {
                 summary.idle_count += 1;
             } else {
-                summary.running_count += 1;
+                summary.working_count += 1;
             }
             summary
         },
     )
 }
 
-/// Menu bar title: compact `运行·空闲·待处理` counts (tooltip carries labels).
 fn tray_title_for(summary: MenuBarSummary) -> Option<String> {
     if summary == MenuBarSummary::default() {
         return Some(String::new());
     }
 
-    Some(format!(
-        "{}·{}·{}",
-        summary.running_count, summary.idle_count, summary.attention_count
-    ))
+    let ask = if summary.ask_count > 0 {
+        format!("{}!", summary.ask_count)
+    } else {
+        summary.ask_count.to_string()
+    };
+
+    Some(format!("{ask}·{}·{}", summary.working_count, summary.idle_count))
 }
 
-fn tray_icon_for(state: MenuBarState, phase: usize) -> tauri::image::Image<'static> {
-    match state {
-        MenuBarState::Attention => include_image!("icons/menu-bar-attention.png"),
-        MenuBarState::Idle => include_image!("icons/menu-bar-idle.png"),
-        MenuBarState::Running => {
-            if phase % 2 == 0 {
-                include_image!("icons/menu-bar-running-1.png")
-            } else {
-                include_image!("icons/menu-bar-running-2.png")
-            }
+fn tray_icon_for(state: MenuBarState, tick: usize) -> tauri::image::Image<'static> {
+    match (state, tray_frame(state, tick)) {
+        (MenuBarState::Ask, 0) => include_image!("../public/bot/ask-5fps/agentisland_perm_00.png"),
+        (MenuBarState::Ask, 1) => include_image!("../public/bot/ask-5fps/agentisland_perm_01.png"),
+        (MenuBarState::Ask, 2) => include_image!("../public/bot/ask-5fps/agentisland_perm_02.png"),
+        (MenuBarState::Ask, 3) => include_image!("../public/bot/ask-5fps/agentisland_perm_03.png"),
+        (MenuBarState::Ask, 4) => include_image!("../public/bot/ask-5fps/agentisland_perm_04.png"),
+        (MenuBarState::Ask, _) => include_image!("../public/bot/ask-5fps/agentisland_perm_05.png"),
+        (MenuBarState::Working, 0) => {
+            include_image!("../public/bot/work-8fps/agentisland_work_00.png")
         }
+        (MenuBarState::Working, 1) => {
+            include_image!("../public/bot/work-8fps/agentisland_work_01.png")
+        }
+        (MenuBarState::Working, 2) => {
+            include_image!("../public/bot/work-8fps/agentisland_work_02.png")
+        }
+        (MenuBarState::Working, _) => {
+            include_image!("../public/bot/work-8fps/agentisland_work_03.png")
+        }
+        (MenuBarState::Idle, _) => include_image!("../public/bot/idle-6fps/agentisland_idle_00.png"),
     }
 }
 
@@ -161,18 +206,18 @@ fn tray_tooltip_for(summary: MenuBarSummary) -> String {
     }
 
     let mut parts = Vec::new();
-    if summary.running_count > 0 {
-        parts.push(format!("运行中 {}", summary.running_count));
+    if summary.ask_count > 0 {
+        parts.push(format!("Ask {}", summary.ask_count));
+    }
+    if summary.working_count > 0 {
+        parts.push(format!("Working {}", summary.working_count));
     }
     if summary.idle_count > 0 {
-        parts.push(format!("空闲 {}", summary.idle_count));
-    }
-    if summary.attention_count > 0 {
-        parts.push(format!("待处理 {}", summary.attention_count));
+        parts.push(format!("Idle {}", summary.idle_count));
     }
 
     format!(
-        "AgentIsland — {}（标题数字顺序：运行·空闲·待处理）",
+        "AgentIsland — {}（标题数字顺序：Ask·Working·Idle）",
         parts.join("，")
     )
 }
@@ -180,12 +225,12 @@ fn tray_tooltip_for(summary: MenuBarSummary) -> String {
 fn sync_tray_state(
     app: &tauri::AppHandle,
     services: &AppServices,
-    phase: usize,
+    tick: usize,
 ) -> tauri::Result<()> {
     let snapshot = services.snapshot();
     let state = derive_menu_bar_state(&snapshot);
     let summary = derive_menu_bar_summary(&snapshot);
-    let icon_key = tray_icon_key(state, phase);
+    let icon_key = tray_icon_key(state, tick);
 
     if let Some(tray) = app.tray_by_id(TRAY_ID) {
         let mut last = services.tray_last_applied.lock().unwrap();
@@ -193,7 +238,7 @@ fn sync_tray_state(
         let summary_changed = last.map(|(_, s)| s != summary).unwrap_or(true);
 
         if icon_changed {
-            tray.set_icon(Some(tray_icon_for(state, phase)))?;
+            tray.set_icon(Some(tray_icon_for(state, tick)))?;
             #[cfg(target_os = "macos")]
             tray.set_icon_as_template(true)?;
         }
@@ -212,7 +257,10 @@ fn sync_tray_state(
 mod tests {
     use chrono::Utc;
 
-    use super::{derive_menu_bar_summary, tray_title_for, AppStateSnapshot, MenuBarSummary};
+    use super::{
+        derive_menu_bar_state, derive_menu_bar_summary, tray_frame, tray_title_for,
+        AppStateSnapshot, MenuBarState, MenuBarSummary,
+    };
     use crate::session::SessionView;
     use crate::settings::UserPreferences;
 
@@ -244,7 +292,7 @@ mod tests {
     }
 
     #[test]
-    fn menu_bar_summary_counts_attention_before_idle_or_running() {
+    fn menu_bar_summary_counts_ask_before_idle_or_working() {
         let summary = derive_menu_bar_summary(&snapshot(vec![
             session("running", false, false),
             session("idle", false, false),
@@ -255,22 +303,59 @@ mod tests {
         assert_eq!(
             summary,
             MenuBarSummary {
-                running_count: 1,
+                ask_count: 2,
+                working_count: 1,
                 idle_count: 1,
-                attention_count: 2,
             }
         );
     }
 
     #[test]
-    fn tray_title_includes_running_idle_and_attention_counts() {
+    fn tray_title_uses_ask_working_idle_order() {
         let title = tray_title_for(MenuBarSummary {
-            running_count: 2,
+            ask_count: 0,
+            working_count: 2,
             idle_count: 1,
-            attention_count: 3,
         });
 
-        assert_eq!(title.as_deref(), Some("2·1·3"));
+        assert_eq!(title.as_deref(), Some("0·2·1"));
+    }
+
+    #[test]
+    fn tray_title_marks_ask_count_when_non_zero() {
+        let title = tray_title_for(MenuBarSummary {
+            ask_count: 1,
+            working_count: 2,
+            idle_count: 0,
+        });
+
+        assert_eq!(title.as_deref(), Some("1!·2·0"));
+    }
+
+    #[test]
+    fn menu_bar_state_prioritizes_ask_over_working() {
+        let state = derive_menu_bar_state(&snapshot(vec![
+            session("running", false, false),
+            session("idle", true, false),
+        ]));
+
+        assert_eq!(state, MenuBarState::Ask);
+    }
+
+    #[test]
+    fn menu_bar_state_falls_back_to_working_before_idle() {
+        let state = derive_menu_bar_state(&snapshot(vec![
+            session("running", false, false),
+            session("idle", false, false),
+        ]));
+
+        assert_eq!(state, MenuBarState::Working);
+    }
+
+    #[test]
+    fn idle_animation_is_static() {
+        assert_eq!(tray_frame(MenuBarState::Idle, 0), 0);
+        assert_eq!(tray_frame(MenuBarState::Idle, 99), 0);
     }
 }
 
@@ -514,11 +599,11 @@ fn handle_tray_click<R: Runtime>(
 
 fn spawn_tray_animation(app: tauri::AppHandle, services: Arc<AppServices>) {
     tauri::async_runtime::spawn(async move {
-        let mut phase = 0usize;
+        let mut tick = 0usize;
         loop {
-            tokio::time::sleep(std::time::Duration::from_millis(350)).await;
-            let _ = sync_tray_state(&app, &services, phase);
-            phase = phase.wrapping_add(1);
+            tokio::time::sleep(std::time::Duration::from_millis(TRAY_TICK_MS)).await;
+            let _ = sync_tray_state(&app, &services, tick);
+            tick = tick.wrapping_add(1);
         }
     });
 }
