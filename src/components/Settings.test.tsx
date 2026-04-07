@@ -1,9 +1,15 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { render, screen, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import Settings from './Settings';
 import { useSessionStore } from '../store/sessions';
-import type { AppStateSnapshot, InstallStatusItem, TimelineLogEntry } from '../types/agent';
+import type {
+  AppStateSnapshot,
+  InstallStatusItem,
+  LogEntry,
+  TimelineLogEntry,
+} from '../types/agent';
 
 const mockedTauri = vi.hoisted(() => ({
   getAppState: vi.fn<() => Promise<AppStateSnapshot>>(),
@@ -51,6 +57,41 @@ const appState: AppStateSnapshot = {
   },
   logs: [],
 };
+
+const previewLogs: LogEntry[] = [
+  {
+    id: 'log-1',
+    source: 'claude',
+    sessionId: 'session-1',
+    kind: 'session_start',
+    createdAt: '2026-04-07T09:00:00.000Z',
+    raw: '{}',
+  },
+  {
+    id: 'log-2',
+    source: 'codex',
+    sessionId: 'session-2',
+    kind: 'tool_start',
+    createdAt: '2026-04-07T09:01:00.000Z',
+    raw: '{}',
+  },
+  {
+    id: 'log-3',
+    source: 'cursor',
+    sessionId: 'session-3',
+    kind: 'notification',
+    createdAt: '2026-04-07T09:02:00.000Z',
+    raw: '{}',
+  },
+  {
+    id: 'log-4',
+    source: 'claude',
+    sessionId: 'session-4',
+    kind: 'afterAgentResponse',
+    createdAt: '2026-04-07T09:03:00.000Z',
+    raw: '{}',
+  },
+];
 
 const installStatus: InstallStatusItem[] = [
   {
@@ -131,5 +172,41 @@ describe('Settings', () => {
     expect(stylesheet).not.toMatch(
       /\.settings-action-btn:disabled\s*\{[^}]*opacity:\s*0\.4;[^}]*\}/,
     );
+  });
+
+  it('首次打开设置页时不加载完整日志时间线，只展示轻量摘要', async () => {
+    mockedTauri.getAppState.mockResolvedValue({
+      ...appState,
+      logs: previewLogs,
+    });
+
+    render(<Settings />);
+
+    await waitFor(() => {
+      expect(screen.getByText('最近 4 条')).toBeInTheDocument();
+    });
+
+    expect(mockedTauri.getLogTimeline).not.toHaveBeenCalled();
+    expect(screen.getByText(/afterAgentResponse/)).toBeInTheDocument();
+    expect(screen.getByText(/notification/)).toBeInTheDocument();
+    expect(screen.queryByText(/session_start/)).not.toBeInTheDocument();
+  });
+
+  it('进入日志页时才加载完整日志时间线', async () => {
+    const user = userEvent.setup();
+
+    render(<Settings />);
+
+    await waitFor(() => {
+      expect(screen.getByText('查看全部日志')).toBeInTheDocument();
+    });
+
+    expect(mockedTauri.getLogTimeline).not.toHaveBeenCalled();
+
+    await user.click(screen.getByText('查看全部日志'));
+
+    await waitFor(() => {
+      expect(mockedTauri.getLogTimeline).toHaveBeenCalledWith(1000);
+    });
   });
 });

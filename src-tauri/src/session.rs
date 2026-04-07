@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::fs::{File, OpenOptions};
 use std::io::{BufRead, BufReader, Write};
 use std::path::PathBuf;
+use std::time::Instant;
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -202,10 +203,38 @@ impl SessionStore {
     }
 
     pub fn log_timeline(&self, limit: usize, bridge_log_path: &PathBuf) -> Vec<TimelineLogEntry> {
+        let total_started = Instant::now();
+
+        let event_started = Instant::now();
         let mut entries = read_event_log_entries(&self.log_path);
-        entries.extend(read_bridge_log_entries(bridge_log_path));
+        let event_count = entries.len();
+        let event_elapsed = event_started.elapsed();
+
+        let bridge_started = Instant::now();
+        let bridge_entries = read_bridge_log_entries(bridge_log_path);
+        let bridge_count = bridge_entries.len();
+        let bridge_elapsed = bridge_started.elapsed();
+
+        entries.extend(bridge_entries);
+
+        let sort_started = Instant::now();
         entries.sort_by(|left, right| right.created_at.cmp(&left.created_at));
+        let sort_elapsed = sort_started.elapsed();
+
         entries.truncate(limit);
+
+        eprintln!(
+            "agentisland:get_log_timeline total_ms={} event_count={} event_read_ms={} bridge_count={} bridge_read_ms={} sort_ms={} returned_count={} limit={}",
+            total_started.elapsed().as_millis(),
+            event_count,
+            event_elapsed.as_millis(),
+            bridge_count,
+            bridge_elapsed.as_millis(),
+            sort_elapsed.as_millis(),
+            entries.len(),
+            limit
+        );
+
         entries
     }
 

@@ -71,14 +71,9 @@ export default function Settings() {
 
   useEffect(() => {
     void (async () => {
-      const [state, status, nextTimeline] = await Promise.all([
-        getAppState(),
-        getInstallStatus(),
-        getLogTimeline(1000),
-      ]);
+      const [state, status] = await Promise.all([getAppState(), getInstallStatus()]);
       replaceState(state);
       setInstallStatus(status);
-      setTimeline(nextTimeline);
     })();
   }, [replaceState]);
 
@@ -86,7 +81,7 @@ export default function Settings() {
     if (page === 'logs') {
       void refreshTimeline();
     }
-  }, [logs.length, page]);
+  }, [page]);
 
   async function runAgentAction(
     key: string,
@@ -111,7 +106,7 @@ export default function Settings() {
     ? {}
     : { initial: { opacity: 0, y: 14 }, animate: { opacity: 1, y: 0 } };
 
-  const recentTimeline = useMemo(() => timeline.slice(0, 3), [timeline]);
+  const recentLogs = useMemo(() => logs.slice(-3).reverse(), [logs]);
 
   return (
     <div className="bg-transparent px-3 py-3 text-[var(--text-primary)] sm:px-4 sm:py-4">
@@ -240,7 +235,7 @@ export default function Settings() {
                     日志
                   </h2>
                   <span className="font-[var(--font-mono)] text-[10px] text-[var(--text-disabled)]">
-                    {timeline.length} 条
+                    最近 {logs.length} 条
                   </span>
                 </div>
                 <button
@@ -267,21 +262,16 @@ export default function Settings() {
                 </button>
 
                 <div className="mt-3 flex flex-col gap-1.5">
-                  {recentTimeline.length > 0 ? (
-                    recentTimeline.map((entry) => (
+                  {recentLogs.length > 0 ? (
+                    recentLogs.map((entry) => (
                       <div key={entry.id} className="timeline-preview-row rounded-lg px-2.5 py-2">
                         <div className="flex items-start justify-between gap-2">
                           <div className="min-w-0">
                             <div className="truncate text-xs font-medium">
-                              {agentSourceLabel(
-                                agents.includes(entry.source as AgentSource)
-                                  ? (entry.source as AgentSource)
-                                  : 'codex',
-                              )}{' '}
-                              · {entry.kind}
+                              {agentSourceLabel(entry.source)} · {entry.kind}
                             </div>
                             <div className="truncate font-[var(--font-mono)] text-[10px] text-[var(--text-secondary)]">
-                              {entry.channel === 'bridge' ? `bridge / ${entry.stage}` : 'hook'}
+                              hook
                             </div>
                           </div>
                           <div className="shrink-0 font-[var(--font-mono)] text-[10px] text-[var(--text-disabled)]">
