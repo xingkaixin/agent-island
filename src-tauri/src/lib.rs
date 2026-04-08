@@ -26,7 +26,8 @@ use uuid::Uuid;
 
 const TRAY_ID: &str = "agent-island-tray";
 const POPOVER_WIDTH: f64 = 420.0;
-const POPOVER_HEIGHT: f64 = 520.0;
+const POPOVER_HEIGHT_TWO_SESSIONS: f64 = 420.0;
+const POPOVER_HEIGHT_THREE_SESSIONS: f64 = 580.0;
 const POPUP_TOP_MARGIN: f64 = 6.0;
 const LOG_RETENTION_DAYS: i64 = 3;
 const LOG_PRUNE_INTERVAL_SECS: u64 = 60 * 60;
@@ -258,8 +259,9 @@ mod tests {
     use chrono::Utc;
 
     use super::{
-        derive_menu_bar_state, derive_menu_bar_summary, tray_frame, tray_title_for,
-        AppStateSnapshot, MenuBarState, MenuBarSummary,
+        derive_menu_bar_state, derive_menu_bar_summary, popover_height_for, tray_frame,
+        tray_title_for, AppStateSnapshot, MenuBarState, MenuBarSummary,
+        POPOVER_HEIGHT_THREE_SESSIONS, POPOVER_HEIGHT_TWO_SESSIONS,
     };
     use crate::session::SessionView;
     use crate::settings::UserPreferences;
@@ -278,6 +280,7 @@ mod tests {
             needs_user_attention,
             subagent_count: 0,
             launcher: None,
+            recent_hooks: Vec::new(),
         }
     }
 
@@ -357,10 +360,18 @@ mod tests {
         assert_eq!(tray_frame(MenuBarState::Idle, 0), 0);
         assert_eq!(tray_frame(MenuBarState::Idle, 99), 0);
     }
+
+    #[test]
+    fn popover_height_uses_two_session_height_until_third_session() {
+        assert_eq!(popover_height_for(0), POPOVER_HEIGHT_TWO_SESSIONS);
+        assert_eq!(popover_height_for(2), POPOVER_HEIGHT_TWO_SESSIONS);
+        assert_eq!(popover_height_for(3), POPOVER_HEIGHT_THREE_SESSIONS);
+    }
 }
 
 fn emit_state(app: &tauri::AppHandle, services: &AppServices) -> tauri::Result<()> {
     let snapshot = services.snapshot();
+    let _ = sync_popover_height(app, services, snapshot.sessions.len());
     app.emit("app-state-updated", snapshot.clone())?;
     sync_tray_state(app, services, 0)?;
     Ok(())
@@ -517,13 +528,22 @@ fn fallback_position<R: Runtime>(
     Ok(PhysicalPosition::new(0.0, 28.0))
 }
 
+fn popover_height_for(session_count: usize) -> f64 {
+    if session_count > 2 {
+        POPOVER_HEIGHT_THREE_SESSIONS
+    } else {
+        POPOVER_HEIGHT_TWO_SESSIONS
+    }
+}
+
 fn position_popover_window<R: Runtime>(
     window: &WebviewWindow<R>,
     anchor: Option<TrayAnchor>,
+    height: f64,
 ) -> Result<(), String> {
     let _ = window.set_size(tauri::Size::Logical(tauri::LogicalSize::new(
         POPOVER_WIDTH,
-        POPOVER_HEIGHT,
+        height,
     )));
 
     let target = if let Some(anchor) = anchor {
@@ -544,6 +564,23 @@ fn position_popover_window<R: Runtime>(
         .map_err(|error| error.to_string())
 }
 
+fn sync_popover_height<R: Runtime>(
+    app: &tauri::AppHandle<R>,
+    services: &AppServices,
+    session_count: usize,
+) -> Result<(), String> {
+    let Some(window) = app.get_webview_window("main") else {
+        return Ok(());
+    };
+
+    if !window.is_visible().map_err(|error| error.to_string())? {
+        return Ok(());
+    }
+
+    let anchor = *services.tray_anchor.lock().unwrap();
+    position_popover_window(&window, anchor, popover_height_for(session_count))
+}
+
 fn show_popover_window<R: Runtime>(
     app: &tauri::AppHandle<R>,
     services: &AppServices,
@@ -553,7 +590,8 @@ fn show_popover_window<R: Runtime>(
         .ok_or_else(|| "main window not found".to_string())?;
     ensure_popover_window(&window);
     let anchor = *services.tray_anchor.lock().unwrap();
-    position_popover_window(&window, anchor)?;
+    let session_count = services.snapshot().sessions.len();
+    position_popover_window(&window, anchor, popover_height_for(session_count))?;
     window.show().map_err(|error| error.to_string())?;
     window.set_focus().map_err(|error| error.to_string())
 }

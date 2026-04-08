@@ -11,6 +11,10 @@ vi.mock('../lib/tauri', () => ({
   forceRemoveSession,
 }));
 
+vi.mock('./SessionStatusSprite', () => ({
+  default: () => <div data-testid="session-status-sprite" />,
+}));
+
 function buildSession(overrides: Partial<SessionView> = {}): SessionView {
   return {
     id: 'session-1',
@@ -25,6 +29,7 @@ function buildSession(overrides: Partial<SessionView> = {}): SessionView {
     needsUserAttention: false,
     subagentCount: 0,
     launcher: null,
+    recentHooks: [],
     ...overrides,
   };
 }
@@ -34,11 +39,13 @@ describe('SessionRow', () => {
     forceRemoveSession.mockReset();
   });
 
-  it('不再显示 elapsed 或 agent 名称标签', () => {
-    render(<SessionRow session={buildSession()} />);
+  it('显示项目名、original app 回退名和最近三条 hook 占位', () => {
+    const { container } = render(<SessionRow session={buildSession()} />);
 
-    expect(screen.queryByText('Elapsed')).not.toBeInTheDocument();
-    expect(screen.queryByText('Claude Code')).not.toBeInTheDocument();
+    expect(screen.getByText('agent-island')).toBeInTheDocument();
+    expect(screen.getByText('Claude Code')).toBeInTheDocument();
+    expect(container.querySelectorAll('.session-hook-line')).toHaveLength(3);
+    expect(screen.getByTestId('session-status-sprite')).toBeInTheDocument();
   });
 
   it('任意会话有来源图标时显示图标和名称', () => {
@@ -53,12 +60,18 @@ describe('SessionRow', () => {
             pid: 123,
             detectedFrom: 'processTree',
           },
+          recentHooks: [
+            { kind: 'UserPromptSubmit', role: 'user', text: 'Fix the login bug' },
+            { kind: 'Stop', role: 'assistant', text: 'Done' },
+          ],
         })}
       />,
     );
 
     expect(screen.getByText('Ghostty')).toBeInTheDocument();
     expect(screen.getByAltText('Ghostty')).toHaveAttribute('src', 'data:image/png;base64,ghostty');
+    expect(screen.getByText('Fix the login bug')).toBeInTheDocument();
+    expect(screen.getByText('Done')).toBeInTheDocument();
   });
 
   it('来源图标缺失时只显示名称', () => {

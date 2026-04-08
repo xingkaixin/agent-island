@@ -52,6 +52,15 @@ pub struct SessionView {
     pub needs_user_attention: bool,
     pub subagent_count: u32,
     pub launcher: Option<LauncherView>,
+    pub recent_hooks: Vec<SessionHookPreview>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct SessionHookPreview {
+    pub kind: String,
+    pub text: String,
+    pub role: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -115,6 +124,7 @@ struct SessionRecord {
     needs_user_attention: bool,
     subagent_count: u32,
     launcher: Option<LauncherView>,
+    recent_hooks: Vec<SessionHookPreview>,
 }
 
 pub struct SessionStore {
@@ -259,6 +269,7 @@ impl SessionStore {
                 needs_user_attention: false,
                 subagent_count: 0,
                 launcher: None,
+                recent_hooks: Vec::new(),
             });
         session.id = session_id;
         session.last_event_at = now;
@@ -419,6 +430,11 @@ impl SessionStore {
             }
             _ => {}
         }
+
+        if let Some(hook) = preview_hook(event) {
+            session.recent_hooks.insert(0, hook);
+            session.recent_hooks.truncate(3);
+        }
     }
 
     pub fn force_remove_session(&mut self, session_id: &str) {
@@ -470,6 +486,7 @@ impl SessionStore {
                 needs_user_attention: session.needs_user_attention,
                 subagent_count: session.subagent_count,
                 launcher: session.launcher,
+                recent_hooks: session.recent_hooks,
             })
             .collect::<Vec<_>>();
 
@@ -668,6 +685,126 @@ fn session_cwd(event: &AgentEvent) -> Option<String> {
                 .and_then(Value::as_str)
                 .map(ToOwned::to_owned)
         })
+}
+
+fn preview_hook(event: &AgentEvent) -> Option<SessionHookPreview> {
+    let text = preview_text(event)?;
+    Some(SessionHookPreview {
+        kind: event.kind.clone(),
+        text,
+        role: preview_role(event).into(),
+    })
+}
+
+fn preview_role(event: &AgentEvent) -> &'static str {
+    if matches!(event.kind.as_str(), "UserPromptSubmit" | "prompt_submit" | "beforeSubmitPrompt") {
+        return "user";
+    }
+
+    if event.payload.get("last_assistant_message").and_then(Value::as_str).is_some()
+        || matches!(event.kind.as_str(), "afterAgentResponse")
+    {
+        return "assistant";
+    }
+
+    "system"
+}
+
+fn preview_text(event: &AgentEvent) -> Option<String> {
+    first_non_empty_str(
+        &event.payload,
+        &[
+            &["prompt"],
+            &["last_assistant_message"],
+            &["message"],
+            &["summary"],
+            &["title"],
+        ],
+    )
+    .map(normalize_preview_text)
+    .or_else(|| first_question(event).and_then(value_text))
+    .or_else(|| permission_summary(event))
+    .or_else(|| tool_input(event).and_then(compose_tool_input_preview))
+    .or_else(|| fallback_preview_text(event))
+}
+
+fn compose_tool_input_preview(input: &Value) -> Option<String> {
+    if let Some(command) = input
+        .get("command")
+        .or_else(|| input.get("cmd"))
+        .and_then(Value::as_str)
+    {
+        return Some(normalize_preview_text(command));
+    }
+
+    if let Some(path) = input
+        .get("file_path")
+        .or_else(|| input.get("filePath"))
+        .or_else(|| input.get("path"))
+        .and_then(Value::as_str)
+    {
+        return Some(normalize_preview_text(path));
+    }
+
+    input
+        .get("description")
+        .and_then(Value::as_str)
+        .map(normalize_preview_text)
+}
+
+fn fallback_preview_text(event: &AgentEvent) -> Option<String> {
+    if let Some(name) = tool_name(event) {
+        return Some(normalize_preview_text(name));
+    }
+
+    match event.kind.as_str() {
+        "Notification" | "notification" | "PermissionRequest" | "permission_request" => {
+            Some(humanize_kind(&event.kind))
+        }
+        _ => None,
+    }
+}
+
+fn humanize_kind(kind: &str) -> String {
+    match kind {
+        "UserPromptSubmit" | "prompt_submit" | "beforeSubmitPrompt" => "Prompt submitted".into(),
+        "Stop" | "stop" => "Stopped".into(),
+        "Notification" | "notification" => "Notification".into(),
+        "PermissionRequest" | "permission_request" => "Permission request".into(),
+        "afterAgentResponse" => "Assistant responded".into(),
+        _ => kind.to_string(),
+    }
+}
+
+fn first_non_empty_str<'a>(value: &'a Value, paths: &[&[&str]]) -> Option<&'a str> {
+    paths.iter().find_map(|path| {
+        value_at_path(value, path)
+            .and_then(Value::as_str)
+            .filter(|text| !text.trim().is_empty())
+    })
+}
+
+fn value_at_path<'a>(value: &'a Value, path: &[&str]) -> Option<&'a Value> {
+    let mut current = value;
+    for segment in path {
+        current = current.get(*segment)?;
+    }
+    Some(current)
+}
+
+fn value_text(value: &Value) -> Option<String> {
+    match value {
+        Value::String(text) if !text.trim().is_empty() => Some(normalize_preview_text(text)),
+        Value::Object(map) => map
+            .get("question")
+            .and_then(Value::as_str)
+            .map(normalize_preview_text),
+        _ => None,
+    }
+}
+
+fn normalize_preview_text(text: impl AsRef<str>) -> String {
+    text.as_ref().replace('\n', " ").trim().to_string()
 }
 
 fn is_expired_session(session: &SessionRecord, now: DateTime<Utc>) -> bool {
@@ -1190,6 +1327,66 @@ mod tests {
         assert_eq!(sessions.len(), 1);
         assert_eq!(sessions[0].status, "attention");
         assert!(sessions[0].needs_user_attention);
+    }
+
+    #[test]
+    fn prompt_and_stop_events_populate_recent_hooks() {
+        let log_path = temp_path("events-recent-hooks");
+        let mut store = SessionStore::new(log_path, std::env::temp_dir());
+        let now = Utc::now();
+
+        store.apply_event(&event("claude", "SessionStart", now));
+        store.apply_event(&event_with_payload(
+            "claude",
+            "UserPromptSubmit",
+            now + Duration::seconds(1),
+            json!({
+                "cwd": "/tmp/project",
+                "prompt": "@wiki/log.md 是否要更新下"
+            }),
+        ));
+        store.apply_event(&event_with_payload(
+            "claude",
+            "Stop",
+            now + Duration::seconds(2),
+            json!({
+                "cwd": "/tmp/project",
+                "last_assistant_message": "内容看起来已经是更新过的了"
+            }),
+        ));
+
+        let sessions = store.snapshot();
+        assert_eq!(sessions[0].recent_hooks.len(), 2);
+        assert_eq!(sessions[0].recent_hooks[0].role, "assistant");
+        assert_eq!(sessions[0].recent_hooks[0].text, "内容看起来已经是更新过的了");
+        assert_eq!(sessions[0].recent_hooks[1].role, "user");
+        assert_eq!(sessions[0].recent_hooks[1].text, "@wiki/log.md 是否要更新下");
+    }
+
+    #[test]
+    fn recent_hooks_keep_only_latest_three_entries() {
+        let log_path = temp_path("events-recent-hooks-truncate");
+        let mut store = SessionStore::new(log_path, std::env::temp_dir());
+        let now = Utc::now();
+
+        store.apply_event(&event("codex", "SessionStart", now));
+        for index in 0..4 {
+            store.apply_event(&event_with_payload(
+                "codex",
+                "UserPromptSubmit",
+                now + Duration::seconds(index + 1),
+                json!({
+                    "cwd": "/tmp/project",
+                    "prompt": format!("prompt-{index}")
+                }),
+            ));
+        }
+
+        let sessions = store.snapshot();
+        assert_eq!(sessions[0].recent_hooks.len(), 3);
+        assert_eq!(sessions[0].recent_hooks[0].text, "prompt-3");
+        assert_eq!(sessions[0].recent_hooks[1].text, "prompt-2");
+        assert_eq!(sessions[0].recent_hooks[2].text, "prompt-1");
     }
 
     #[test]

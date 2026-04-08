@@ -4,7 +4,7 @@ import { motion, useReducedMotion } from 'framer-motion';
 import { CircleDot, LogOut, Settings2 } from 'lucide-react';
 import SessionRow from './components/SessionRow';
 import Settings from './components/Settings';
-import AgentAvatar from './components/AgentAvatar';
+import AgentAvatar, { agentSourceLabel } from './components/AgentAvatar';
 import {
   getAppState,
   getCurrentWindowLabel,
@@ -13,7 +13,9 @@ import {
   quitApp,
 } from './lib/tauri';
 import { useSessionStore } from './store/sessions';
-import type { SessionView } from './types/agent';
+import type { AgentSource, SessionView } from './types/agent';
+
+const agentOrder: AgentSource[] = ['claude', 'codex', 'cursor'];
 
 function summarizeSessions(sessions: SessionView[]) {
   return sessions.reduce(
@@ -33,6 +35,26 @@ function summarizeSessions(sessions: SessionView[]) {
 
 function metricTone(value: number, tone: 'active' | 'idle' | 'attention') {
   return value > 0 ? tone : 'idle';
+}
+
+function groupSessions(sessions: SessionView[]) {
+  const grouped = new Map<AgentSource, SessionView[]>();
+
+  for (const session of sessions) {
+    const bucket = grouped.get(session.source) ?? [];
+    bucket.push(session);
+    grouped.set(session.source, bucket);
+  }
+
+  return Array.from(grouped.entries())
+    .sort((left, right) => {
+      const countDiff = right[1].length - left[1].length;
+      if (countDiff !== 0) {
+        return countDiff;
+      }
+      return agentOrder.indexOf(left[0]) - agentOrder.indexOf(right[0]);
+    })
+    .map(([source, items]) => ({ source, items }));
 }
 
 export default function App() {
@@ -88,6 +110,7 @@ export default function App() {
     [sessions],
   );
   const sessionSummary = useMemo(() => summarizeSessions(sessions), [sessions]);
+  const sessionGroups = useMemo(() => groupSessions(sessions), [sessions]);
 
   const parkInitialFocus = () => {
     window.requestAnimationFrame(() => {
@@ -249,15 +272,35 @@ export default function App() {
 
             {sessions.length > 0 ? (
               <div className="mt-2 flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto pr-1">
-                {sessions.map((session, index) => (
-                  <motion.div
-                    key={session.id}
+                {sessionGroups.map((group, groupIndex) => (
+                  <motion.section
+                    key={group.source}
                     initial={reduceMotion ? false : { opacity: 0, y: 8 }}
                     animate={reduceMotion ? {} : { opacity: 1, y: 0 }}
-                    transition={{ duration: 0.2, delay: 0.03 * index, ease: [0.16, 1, 0.3, 1] }}
+                    transition={{
+                      duration: 0.2,
+                      delay: 0.03 * groupIndex,
+                      ease: [0.16, 1, 0.3, 1],
+                    }}
+                    className="agent-group rounded-xl border border-[var(--border)] bg-[rgba(255,255,255,0.01)] p-2"
                   >
-                    <SessionRow session={session} />
-                  </motion.div>
+                    <div className="flex items-center justify-between gap-2 px-1 pb-2">
+                      <div className="flex min-w-0 items-center gap-2">
+                        <AgentAvatar size="sm" source={group.source} />
+                        <span className="truncate font-[var(--font-mono)] text-[11px] font-bold uppercase tracking-[0.08em] text-[var(--text-primary)]">
+                          {agentSourceLabel(group.source).replace(' Code', '')}
+                        </span>
+                      </div>
+                      <span className="font-[var(--font-mono)] text-[10px] text-[var(--text-secondary)]">
+                        {group.items.length}
+                      </span>
+                    </div>
+                    <div className="flex flex-col gap-2">
+                      {group.items.map((session) => (
+                        <SessionRow key={session.id} session={session} />
+                      ))}
+                    </div>
+                  </motion.section>
                 ))}
               </div>
             ) : (

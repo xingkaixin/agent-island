@@ -50,6 +50,13 @@ export interface SessionView {
   needsUserAttention: boolean;
   subagentCount: number;
   launcher?: LauncherView | null;
+  recentHooks: SessionHookPreview[];
+}
+
+export interface SessionHookPreview {
+  kind: string;
+  text: string;
+  role: 'user' | 'assistant' | 'system';
 }
 
 export interface InstallStatusItem {
