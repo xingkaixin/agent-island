@@ -104,7 +104,7 @@ export default function SessionRow({ session }: { session: SessionView }) {
           </span>
         </div>
         <div className="session-path mt-2 truncate">{formatWorkspaceLabel(session.cwd)}</div>
-        {session.source === 'claude' && session.launcher?.name ? (
+        {session.launcher?.name ? (
           <div className="mt-2 flex items-center gap-2 text-xs text-[var(--text-secondary)]">
             {iconSrc ? (
               <img

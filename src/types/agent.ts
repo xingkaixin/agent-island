@@ -23,6 +23,8 @@ export interface LauncherView {
   name: string;
   iconDataUrl?: string | null;
   bundlePath?: string | null;
+  pid?: number | null;
+  detectedFrom?: 'processTree' | null;
 }
 
 export interface PermissionRequestView {

@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::Mutex;
@@ -12,19 +12,18 @@ pub struct LauncherView {
     pub name: String,
     pub icon_data_url: Option<String>,
     pub bundle_path: Option<String>,
+    #[serde(default)]
+    pub pid: Option<u32>,
+    #[serde(default)]
+    pub detected_from: Option<String>,
 }
 
-pub struct ClaudeSessionResolver {
+#[allow(dead_code)]
+pub struct LauncherResolver {
     icon_cache: Mutex<HashMap<PathBuf, String>>,
 }
 
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct ClaudeSessionFile {
-    pid: u32,
-    session_id: String,
-}
-
+#[allow(dead_code)]
 #[derive(Debug, Clone)]
 struct ProcessInfo {
     pid: u32,
@@ -32,46 +31,41 @@ struct ProcessInfo {
     args: String,
 }
 
-impl ClaudeSessionResolver {
-    pub fn new(_icon_cache_dir: PathBuf) -> Self {
+impl LauncherResolver {
+    #[allow(dead_code)]
+    pub fn new() -> Self {
         Self {
             icon_cache: Mutex::new(HashMap::new()),
         }
     }
 
-    pub fn resolve(&self) -> Option<HashMap<String, LauncherView>> {
-        let Ok(session_files) = read_claude_session_files() else {
-            return None;
-        };
-        if session_files.is_empty() {
-            return Some(HashMap::new());
-        }
-
-        let Ok(processes) = read_process_table() else {
-            return None;
-        };
-
-        Some(
-            session_files
-            .into_iter()
-            .filter_map(|session| {
-                let root = resolve_root_process(session.pid, &processes)?;
-                let bundle_path = bundle_path_from_args(root.args.as_str())?;
-                let name = app_name_from_bundle_path(&bundle_path)?;
-                let icon_data_url = self.export_app_icon(&bundle_path);
-                Some((
-                    session.session_id,
-                    LauncherView {
-                        name,
-                        icon_data_url,
-                        bundle_path: Some(bundle_path.to_string_lossy().into_owned()),
-                    },
-                ))
-            })
-            .collect(),
-        )
+    #[allow(dead_code)]
+    pub fn detect_for_current_process() -> Option<LauncherView> {
+        let processes = read_process_table().ok()?;
+        resolve_launcher(std::process::id(), &processes)
     }
 
+    #[allow(dead_code)]
+    pub fn hydrate(&self, launcher: LauncherView) -> LauncherView {
+        let Some(bundle_path) = launcher.bundle_path.as_deref() else {
+            return launcher;
+        };
+        if launcher.icon_data_url.is_some() {
+            return launcher;
+        }
+
+        let bundle_path = PathBuf::from(bundle_path);
+        let Some(icon_data_url) = self.export_app_icon(&bundle_path) else {
+            return launcher;
+        };
+
+        LauncherView {
+            icon_data_url: Some(icon_data_url),
+            ..launcher
+        }
+    }
+
+    #[allow(dead_code)]
     fn export_app_icon(&self, bundle_path: &Path) -> Option<String> {
         if let Some(cached) = self.icon_cache.lock().unwrap().get(bundle_path).cloned() {
             return Some(cached);
@@ -86,35 +80,7 @@ impl ClaudeSessionResolver {
     }
 }
 
-fn read_claude_session_files() -> Result<Vec<ClaudeSessionFile>, std::io::Error> {
-    let Some(home_dir) = std::env::var_os("HOME") else {
-        return Ok(Vec::new());
-    };
-    let sessions_dir = PathBuf::from(home_dir).join(".claude").join("sessions");
-    let Ok(entries) = std::fs::read_dir(sessions_dir) else {
-        return Ok(Vec::new());
-    };
-
-    let mut sessions = Vec::new();
-    for entry in entries {
-        let entry = entry?;
-        if entry.path().extension().and_then(|ext| ext.to_str()) != Some("json") {
-            continue;
-        }
-
-        let Ok(contents) = std::fs::read_to_string(entry.path()) else {
-            continue;
-        };
-        let Ok(session) = serde_json::from_str::<ClaudeSessionFile>(&contents) else {
-            continue;
-        };
-
-        sessions.push(session);
-    }
-
-    Ok(sessions)
-}
-
+#[allow(dead_code)]
 fn read_process_table() -> Result<HashMap<u32, ProcessInfo>, std::io::Error> {
     let output = Command::new("ps")
         .args(["-axo", "pid=,ppid=,args="])
@@ -132,6 +98,7 @@ fn read_process_table() -> Result<HashMap<u32, ProcessInfo>, std::io::Error> {
         .collect())
 }
 
+#[allow(dead_code)]
 fn parse_process_line(line: &str) -> Option<ProcessInfo> {
     let trimmed = line.trim_start();
     if trimmed.is_empty() {
@@ -152,35 +119,37 @@ fn parse_process_line(line: &str) -> Option<ProcessInfo> {
     })
 }
 
-fn resolve_root_process(pid: u32, processes: &HashMap<u32, ProcessInfo>) -> Option<ProcessInfo> {
-    let mut current = pid;
-    let mut visited = HashSet::new();
-    let mut last = None;
+#[allow(dead_code)]
+fn resolve_launcher(pid: u32, processes: &HashMap<u32, ProcessInfo>) -> Option<LauncherView> {
+    let mut current = processes.get(&pid)?.ppid;
 
-    while visited.insert(current) {
-        let process = processes.get(&current)?.clone();
-        last = Some(process.clone());
-
-        if process.ppid == 1 {
-            return Some(process);
+    while current != 0 {
+        let process = processes.get(&current)?;
+        if let Some(bundle_path) = bundle_path_from_args(&process.args) {
+            let name = app_name_from_bundle_path(&bundle_path)?;
+            return Some(LauncherView {
+                name,
+                icon_data_url: None,
+                bundle_path: Some(bundle_path.to_string_lossy().into_owned()),
+                pid: Some(process.pid),
+                detected_from: Some("processTree".into()),
+            });
         }
-
         current = process.ppid;
     }
 
-    last
+    None
 }
 
+#[allow(dead_code)]
 fn bundle_path_from_args(args: &str) -> Option<PathBuf> {
-    if !args.starts_with('/') {
-        return None;
-    }
-
     let marker = ".app/Contents/";
     let app_end = args.find(marker)? + 4;
-    Some(PathBuf::from(&args[..app_end]))
+    let bundle = &args[..app_end];
+    bundle.starts_with('/').then(|| PathBuf::from(bundle))
 }
 
+#[allow(dead_code)]
 fn app_name_from_bundle_path(path: &Path) -> Option<String> {
     path.file_stem()
         .and_then(|name| name.to_str())
@@ -189,8 +158,9 @@ fn app_name_from_bundle_path(path: &Path) -> Option<String> {
 
 #[cfg(target_os = "macos")]
 #[allow(deprecated)]
+#[allow(dead_code)]
 fn export_app_icon_data_url(bundle_path: &Path) -> Option<String> {
-    use objc2::{runtime::AnyObject, AnyThread};
+    use objc2::{AnyThread, runtime::AnyObject};
     use objc2_app_kit::{NSBitmapImageFileType, NSBitmapImageRep, NSImage, NSWorkspace};
     use objc2_foundation::{NSDictionary, NSPoint, NSRect, NSSize, NSString};
 
@@ -213,7 +183,8 @@ fn export_app_icon_data_url(bundle_path: &Path) -> Option<String> {
         canvas.unlockFocus();
         let tiff_data = canvas.TIFFRepresentation()?;
         let bitmap = NSBitmapImageRep::imageRepWithData(&tiff_data)?;
-        let properties = NSDictionary::<objc2_app_kit::NSBitmapImageRepPropertyKey, AnyObject>::dictionary();
+        let properties =
+            NSDictionary::<objc2_app_kit::NSBitmapImageRepPropertyKey, AnyObject>::dictionary();
         bitmap
             .representationUsingType_properties(NSBitmapImageFileType::PNG, &properties)?
             .to_vec()
@@ -224,6 +195,7 @@ fn export_app_icon_data_url(bundle_path: &Path) -> Option<String> {
 }
 
 #[cfg(not(target_os = "macos"))]
+#[allow(dead_code)]
 fn export_app_icon_data_url(_bundle_path: &Path) -> Option<String> {
     None
 }
@@ -234,57 +206,126 @@ mod tests {
 
     #[test]
     fn parses_process_rows_with_spaces_in_args() {
-        let process = parse_process_line(" 1447     1 /Applications/Ghostty.app/Contents/MacOS/ghostty").unwrap();
+        let process =
+            parse_process_line(" 1447     1 /Applications/Ghostty.app/Contents/MacOS/ghostty")
+                .unwrap();
         assert_eq!(process.pid, 1447);
         assert_eq!(process.ppid, 1);
-        assert_eq!(process.args, "/Applications/Ghostty.app/Contents/MacOS/ghostty");
+        assert_eq!(
+            process.args,
+            "/Applications/Ghostty.app/Contents/MacOS/ghostty"
+        );
     }
 
     #[test]
-    fn extracts_bundle_path_from_root_process_args() {
-        let bundle = bundle_path_from_args("/Applications/Google Chrome.app/Contents/MacOS/Google Chrome").unwrap();
+    fn extracts_bundle_path_from_process_args() {
+        let bundle =
+            bundle_path_from_args("/Applications/Google Chrome.app/Contents/MacOS/Google Chrome")
+                .unwrap();
         assert_eq!(bundle, PathBuf::from("/Applications/Google Chrome.app"));
     }
 
     #[test]
-    fn resolves_root_process_by_following_parent_chain() {
+    fn resolves_nearest_launcher_in_process_tree() {
         let processes = HashMap::from([
             (
-                87884,
+                90001,
                 ProcessInfo {
-                    pid: 87884,
-                    ppid: 64851,
-                    args: "claude".into(),
+                    pid: 90001,
+                    ppid: 90000,
+                    args: "python3 /Users/Kevin/.agentisland/bin/agentisland-bridge".into(),
                 },
             ),
             (
-                64851,
+                90000,
                 ProcessInfo {
-                    pid: 64851,
-                    ppid: 64849,
-                    args: "-zsh".into(),
+                    pid: 90000,
+                    ppid: 89999,
+                    args: "/bin/zsh -lc /Users/Kevin/.agentisland/bin/agentisland-bridge".into(),
                 },
             ),
             (
-                64849,
+                89999,
                 ProcessInfo {
-                    pid: 64849,
-                    ppid: 64283,
-                    args: "/usr/bin/login -flp Kevin /bin/zsh -fc exec -a -zsh /bin/zsh".into(),
+                    pid: 89999,
+                    ppid: 89998,
+                    args: "codex".into(),
                 },
             ),
             (
-                64283,
+                89998,
                 ProcessInfo {
-                    pid: 64283,
+                    pid: 89998,
                     ppid: 1,
-                    args: "/Applications/Zed.app/Contents/MacOS/zed".into(),
+                    args: "/Applications/Ghostty.app/Contents/MacOS/ghostty".into(),
                 },
             ),
         ]);
 
-        let root = resolve_root_process(87884, &processes).unwrap();
-        assert_eq!(root.pid, 64283);
-        assert_eq!(root.ppid, 1);
+        let launcher = resolve_launcher(90001, &processes).unwrap();
+        assert_eq!(launcher.name, "Ghostty");
+        assert_eq!(
+            launcher.bundle_path.as_deref(),
+            Some("/Applications/Ghostty.app")
+        );
+        assert_eq!(launcher.pid, Some(89998));
+        assert_eq!(launcher.detected_from.as_deref(), Some("processTree"));
+    }
+
+    #[test]
+    fn prefers_closest_app_ancestor() {
+        let processes = HashMap::from([
+            (
+                90001,
+                ProcessInfo {
+                    pid: 90001,
+                    ppid: 90000,
+                    args: "python3 bridge".into(),
+                },
+            ),
+            (
+                90000,
+                ProcessInfo {
+                    pid: 90000,
+                    ppid: 89999,
+                    args: "/Applications/Cursor.app/Contents/MacOS/Cursor".into(),
+                },
+            ),
+            (
+                89999,
+                ProcessInfo {
+                    pid: 89999,
+                    ppid: 89998,
+                    args: "/Applications/Ghostty.app/Contents/MacOS/ghostty".into(),
+                },
+            ),
+        ]);
+
+        let launcher = resolve_launcher(90001, &processes).unwrap();
+        assert_eq!(launcher.name, "Cursor");
+    }
+
+    #[test]
+    fn returns_none_when_process_tree_has_no_app() {
+        let processes = HashMap::from([
+            (
+                90001,
+                ProcessInfo {
+                    pid: 90001,
+                    ppid: 90000,
+                    args: "python3 bridge".into(),
+                },
+            ),
+            (
+                90000,
+                ProcessInfo {
+                    pid: 90000,
+                    ppid: 1,
+                    args: "/bin/zsh -lc codex".into(),
+                },
+            ),
+        ]);
+
+        assert!(resolve_launcher(90001, &processes).is_none());
     }
 }

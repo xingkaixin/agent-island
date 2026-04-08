@@ -8,7 +8,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::launcher::{ClaudeSessionResolver, LauncherView};
+use crate::launcher::{LauncherResolver, LauncherView};
 
 const SESSION_IDLE_TIMEOUT_MS: i64 = 30_000;
 
@@ -19,6 +19,8 @@ pub struct AgentEvent {
     pub session_id: String,
     pub timestamp: Option<DateTime<Utc>>,
     pub kind: String,
+    #[serde(default)]
+    pub launcher: Option<LauncherView>,
     #[serde(default)]
     pub payload: Value,
 }
@@ -119,16 +121,16 @@ pub struct SessionStore {
     sessions: HashMap<String, SessionRecord>,
     logs: Vec<LogEntry>,
     log_path: PathBuf,
-    claude_session_resolver: ClaudeSessionResolver,
+    launcher_resolver: LauncherResolver,
 }
 
 impl SessionStore {
-    pub fn new(log_path: PathBuf, icon_cache_dir: PathBuf) -> Self {
+    pub fn new(log_path: PathBuf, _icon_cache_dir: PathBuf) -> Self {
         Self {
             sessions: HashMap::new(),
             logs: Vec::new(),
             log_path,
-            claude_session_resolver: ClaudeSessionResolver::new(icon_cache_dir),
+            launcher_resolver: LauncherResolver::new(),
         }
     }
 
@@ -261,6 +263,10 @@ impl SessionStore {
         session.id = session_id;
         session.last_event_at = now;
 
+        if let Some(launcher) = event.launcher.clone() {
+            session.launcher = Some(self.launcher_resolver.hydrate(launcher));
+        }
+
         if let Some(cwd) = session_cwd(event) {
             session.cwd = Some(cwd);
         }
@@ -332,20 +338,18 @@ impl SessionStore {
                 session.status = "idle".into();
                 session.status_detail = "idle".into();
             }
-            "notification" | "Notification" => {
-                match classify_notification(event) {
-                    NotificationDisposition::Idle => {
-                        session.status = "idle".into();
-                        session.status_detail = notification_idle_detail(event);
-                        session.needs_user_attention = false;
-                    }
-                    NotificationDisposition::Attention => {
-                        session.status = "attention".into();
-                        session.status_detail = describe_attention_event(event);
-                        session.needs_user_attention = true;
-                    }
+            "notification" | "Notification" => match classify_notification(event) {
+                NotificationDisposition::Idle => {
+                    session.status = "idle".into();
+                    session.status_detail = notification_idle_detail(event);
+                    session.needs_user_attention = false;
                 }
-            }
+                NotificationDisposition::Attention => {
+                    session.status = "attention".into();
+                    session.status_detail = describe_attention_event(event);
+                    session.needs_user_attention = true;
+                }
+            },
             "permission_request" | "PermissionRequest" => {
                 session.status = "attention".into();
                 session.has_pending_permission = true;
@@ -444,7 +448,6 @@ impl SessionStore {
     }
 
     pub fn snapshot(&mut self) -> Vec<SessionView> {
-        self.refresh_claude_sessions();
         let now = Utc::now();
         let mut sessions = self
             .sessions
@@ -478,24 +481,6 @@ impl SessionStore {
             )
         });
         sessions
-    }
-
-    fn refresh_claude_sessions(&mut self) {
-        let Some(launchers) = self.claude_session_resolver.resolve() else {
-            return;
-        };
-        self.sessions.retain(|session_id, session| {
-            if session.source != "claude" {
-                return true;
-            }
-
-            let Some(launcher) = launchers.get(session_id) else {
-                return false;
-            };
-
-            session.launcher = Some(launcher.clone());
-            true
-        });
     }
 }
 
@@ -731,10 +716,7 @@ fn read_bridge_log_entries(path: &PathBuf) -> Vec<TimelineLogEntry> {
     read_json_lines(path, parse_bridge_log_entry)
 }
 
-fn read_json_lines<T>(
-    path: &PathBuf,
-    parser: impl Fn(usize, &str) -> Option<T>,
-) -> Vec<T> {
+fn read_json_lines<T>(path: &PathBuf, parser: impl Fn(usize, &str) -> Option<T>) -> Vec<T> {
     let Ok(file) = File::open(path) else {
         return Vec::new();
     };
@@ -867,6 +849,7 @@ mod tests {
             session_id: format!("{source}-session"),
             timestamp: Some(timestamp),
             kind: kind.into(),
+            launcher: None,
             payload: json!({ "cwd": "/tmp/project" }),
         }
     }
@@ -882,7 +865,24 @@ mod tests {
             session_id: format!("{source}-session"),
             timestamp: Some(timestamp),
             kind: kind.into(),
+            launcher: None,
             payload,
+        }
+    }
+
+    fn event_with_launcher(
+        source: &str,
+        kind: &str,
+        timestamp: DateTime<Utc>,
+        launcher: LauncherView,
+    ) -> AgentEvent {
+        AgentEvent {
+            source: source.into(),
+            session_id: format!("{source}-session"),
+            timestamp: Some(timestamp),
+            kind: kind.into(),
+            launcher: Some(launcher),
+            payload: json!({ "cwd": "/tmp/project" }),
         }
     }
 
@@ -893,7 +893,11 @@ mod tests {
         let now = Utc::now();
 
         store.apply_event(&event("codex", "SessionStart", now));
-        store.apply_event(&event("codex", "UserPromptSubmit", now + Duration::seconds(2)));
+        store.apply_event(&event(
+            "codex",
+            "UserPromptSubmit",
+            now + Duration::seconds(2),
+        ));
 
         let sessions = store.snapshot();
         assert_eq!(sessions.len(), 1);
@@ -952,11 +956,81 @@ mod tests {
 
         store.apply_event(&event("codex", "SessionStart", now));
         store.force_remove_session("codex-session");
-        store.apply_event(&event("codex", "UserPromptSubmit", now + Duration::seconds(1)));
+        store.apply_event(&event(
+            "codex",
+            "UserPromptSubmit",
+            now + Duration::seconds(1),
+        ));
 
         let sessions = store.snapshot();
         assert_eq!(sessions.len(), 1);
         assert_eq!(sessions[0].id, "codex-session");
+    }
+
+    #[test]
+    fn launcher_from_event_is_attached_to_session() {
+        let log_path = temp_path("events-launcher");
+        let mut store = SessionStore::new(log_path, std::env::temp_dir());
+        let now = Utc::now();
+
+        store.apply_event(&event_with_launcher(
+            "codex",
+            "SessionStart",
+            now,
+            LauncherView {
+                name: "Ghostty".into(),
+                icon_data_url: None,
+                bundle_path: Some("/Applications/Ghostty.app".into()),
+                pid: Some(123),
+                detected_from: Some("processTree".into()),
+            },
+        ));
+
+        let sessions = store.snapshot();
+        assert_eq!(sessions.len(), 1);
+        assert_eq!(
+            sessions[0].launcher.as_ref().map(|item| item.name.as_str()),
+            Some("Ghostty")
+        );
+        assert_eq!(
+            sessions[0]
+                .launcher
+                .as_ref()
+                .and_then(|item| item.bundle_path.as_deref()),
+            Some("/Applications/Ghostty.app")
+        );
+    }
+
+    #[test]
+    fn empty_launcher_update_does_not_clear_existing_launcher() {
+        let log_path = temp_path("events-launcher-keep");
+        let mut store = SessionStore::new(log_path, std::env::temp_dir());
+        let now = Utc::now();
+
+        store.apply_event(&event_with_launcher(
+            "cursor",
+            "SessionStart",
+            now,
+            LauncherView {
+                name: "Cursor".into(),
+                icon_data_url: None,
+                bundle_path: Some("/Applications/Cursor.app".into()),
+                pid: Some(456),
+                detected_from: Some("processTree".into()),
+            },
+        ));
+        store.apply_event(&event(
+            "cursor",
+            "beforeSubmitPrompt",
+            now + Duration::seconds(1),
+        ));
+
+        let sessions = store.snapshot();
+        assert_eq!(sessions.len(), 1);
+        assert_eq!(
+            sessions[0].launcher.as_ref().map(|item| item.name.as_str()),
+            Some("Cursor")
+        );
     }
 
     #[test]
@@ -1059,7 +1133,10 @@ mod tests {
         let sessions = store.snapshot();
         assert_eq!(sessions.len(), 1);
         assert_eq!(sessions[0].status, "idle");
-        assert_eq!(sessions[0].status_detail, "Claude is waiting for your input");
+        assert_eq!(
+            sessions[0].status_detail,
+            "Claude is waiting for your input"
+        );
         assert!(!sessions[0].needs_user_attention);
     }
 

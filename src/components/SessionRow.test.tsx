@@ -41,14 +41,17 @@ describe('SessionRow', () => {
     expect(screen.queryByText('Claude Code')).not.toBeInTheDocument();
   });
 
-  it('Claude 会话有来源图标时显示图标和名称', () => {
+  it('任意会话有来源图标时显示图标和名称', () => {
     render(
       <SessionRow
         session={buildSession({
+          source: 'codex',
           launcher: {
             name: 'Ghostty',
             iconDataUrl: 'data:image/png;base64,ghostty',
             bundlePath: '/Applications/Ghostty.app',
+            pid: 123,
+            detectedFrom: 'processTree',
           },
         })}
       />,
@@ -66,6 +69,8 @@ describe('SessionRow', () => {
             name: 'Zed',
             iconDataUrl: null,
             bundlePath: '/Applications/Zed.app',
+            pid: 456,
+            detectedFrom: 'processTree',
           },
         })}
       />,

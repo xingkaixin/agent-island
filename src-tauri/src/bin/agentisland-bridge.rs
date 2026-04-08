@@ -2,7 +2,11 @@ use std::io::{Read, Write};
 use std::os::unix::net::UnixStream;
 use std::path::PathBuf;
 
-use serde_json::{json, Value};
+#[path = "../launcher.rs"]
+mod launcher;
+
+use launcher::LauncherResolver;
+use serde_json::{Value, json};
 
 fn main() {
     if let Err(error) = run() {
@@ -36,6 +40,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             "sessionId": session_id,
             "timestamp": chrono::Utc::now(),
             "kind": kind,
+            "launcher": LauncherResolver::detect_for_current_process(),
             "payload": raw
         }
     });

@@ -1,6 +1,6 @@
 use tauri_plugin_notification::NotificationExt;
 
-use crate::{session::AgentEvent, AppServices};
+use crate::{AppServices, session::AgentEvent};
 
 pub fn maybe_notify(app: &tauri::AppHandle, services: &AppServices, event: &AgentEvent) {
     let preferences = services.preferences.lock().unwrap().clone();
@@ -50,6 +50,7 @@ mod tests {
             session_id: "session-1".into(),
             timestamp: Some(Utc::now()),
             kind: kind.into(),
+            launcher: None,
             payload,
         }
     }
