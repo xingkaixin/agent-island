@@ -17,10 +17,16 @@ import type { AgentSource, SessionView } from './types/agent';
 
 const agentOrder: AgentSource[] = ['claude', 'codex', 'cursor'];
 
+function isAskSession(session: SessionView) {
+  return (
+    session.status === 'permission' || session.hasPendingPermission || session.needsUserAttention
+  );
+}
+
 function summarizeSessions(sessions: SessionView[]) {
   return sessions.reduce(
     (summary, session) => {
-      if (session.hasPendingPermission || session.needsUserAttention) {
+      if (isAskSession(session)) {
         summary.attention += 1;
       } else if (session.status === 'idle') {
         summary.idle += 1;

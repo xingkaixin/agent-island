@@ -155,4 +155,45 @@ describe('App', () => {
     expect(screen.getAllByText('Claude Code')).toHaveLength(1);
     expect(screen.getAllByText('Codex')).toHaveLength(2);
   });
+
+  it('仅显示 AskUserQuestion 预览时不渲染 attention 提示', async () => {
+    mockedTauri.getAppState.mockResolvedValue({
+      ...state,
+      sessions: [
+        {
+          id: 'claude-ask',
+          source: 'claude',
+          title: 'claude session',
+          status: 'permission',
+          statusDetail: '你好！请问你希望我帮你完成什么任务？',
+          cwd: '/tmp/ask',
+          startedAt: '2026-04-08T10:03:00.000Z',
+          durationMs: 1000,
+          hasPendingPermission: false,
+          needsUserAttention: false,
+          subagentCount: 0,
+          launcher: null,
+          recentHooks: [
+            {
+              kind: 'Notification',
+              role: 'system',
+              text: '你好！请问你希望我帮你完成什么任务？',
+            },
+          ],
+        },
+      ],
+    });
+
+    const { container } = render(<App />);
+
+    await waitFor(() => {
+      expect(screen.getByText('你好！请问你希望我帮你完成什么任务？')).toBeInTheDocument();
+    });
+
+    const attentionPill = screen.getByText('待处理').closest('.status-pill-inline');
+    expect(attentionPill).not.toBeNull();
+    expect(within(attentionPill as HTMLElement).getByText('1')).toBeInTheDocument();
+    expect(screen.queryByText('需要处理')).not.toBeInTheDocument();
+    expect(container.querySelector('.attention-ring')).not.toBeInTheDocument();
+  });
 });

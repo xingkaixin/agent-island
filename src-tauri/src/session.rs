@@ -349,23 +349,42 @@ impl SessionStore {
                 session.status = "idle".into();
                 session.status_detail = "idle".into();
             }
-            "notification" | "Notification" => match classify_notification(event) {
-                NotificationDisposition::Idle => {
-                    session.status = "idle".into();
-                    session.status_detail = notification_idle_detail(event);
-                    session.needs_user_attention = false;
+            "notification" | "Notification" => {
+                if !should_ignore_permission_prompt_notification(session, event) {
+                    match classify_notification(event) {
+                        NotificationDisposition::Idle => {
+                            session.status = "idle".into();
+                            session.status_detail = notification_idle_detail(event);
+                            session.needs_user_attention = false;
+                        }
+                        NotificationDisposition::AskUserQuestion => {
+                            session.status = "permission".into();
+                            session.status_detail = ask_user_summary(event)
+                                .unwrap_or_else(|| "AskUserQuestion".to_string());
+                            session.has_pending_permission = false;
+                            session.needs_user_attention = false;
+                        }
+                        NotificationDisposition::Attention => {
+                            session.status = "attention".into();
+                            session.status_detail = describe_attention_event(event);
+                            session.needs_user_attention = true;
+                        }
+                    }
                 }
-                NotificationDisposition::Attention => {
-                    session.status = "attention".into();
-                    session.status_detail = describe_attention_event(event);
-                    session.needs_user_attention = true;
-                }
-            },
+            }
             "permission_request" | "PermissionRequest" => {
-                session.status = "attention".into();
-                session.has_pending_permission = true;
-                session.needs_user_attention = true;
-                session.status_detail = describe_attention_event(event);
+                if is_ask_user_question(event) {
+                    session.status = "permission".into();
+                    session.has_pending_permission = false;
+                    session.needs_user_attention = false;
+                    session.status_detail =
+                        ask_user_summary(event).unwrap_or_else(|| "AskUserQuestion".to_string());
+                } else {
+                    session.status = "attention".into();
+                    session.has_pending_permission = true;
+                    session.needs_user_attention = true;
+                    session.status_detail = describe_attention_event(event);
+                }
             }
             "permission_resolved" => {
                 session.has_pending_permission = false;
@@ -532,12 +551,17 @@ fn describe_attention_event(event: &AgentEvent) -> String {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum NotificationDisposition {
     Idle,
+    AskUserQuestion,
     Attention,
 }
 
 fn classify_notification(event: &AgentEvent) -> NotificationDisposition {
     if is_idle_prompt(event) {
         return NotificationDisposition::Idle;
+    }
+
+    if is_ask_user_question(event) {
+        return NotificationDisposition::AskUserQuestion;
     }
 
     NotificationDisposition::Attention
@@ -552,6 +576,16 @@ fn notification_idle_detail(event: &AgentEvent) -> String {
         .and_then(Value::as_str)
         .unwrap_or("idle")
         .to_string()
+}
+
+fn should_ignore_permission_prompt_notification(
+    session: &SessionRecord,
+    event: &AgentEvent,
+) -> bool {
+    is_permission_prompt(event)
+        && !session.has_pending_permission
+        && !session.needs_user_attention
+        && session.status == "permission"
 }
 
 fn is_permission_prompt(event: &AgentEvent) -> bool {
@@ -593,6 +627,14 @@ fn is_permission_prompt(event: &AgentEvent) -> bool {
 
 fn is_ask_user_question(event: &AgentEvent) -> bool {
     tool_name(event) == Some("AskUserQuestion")
+}
+
+fn is_ask_user_question_tool_hook(event: &AgentEvent) -> bool {
+    is_ask_user_question(event)
+        && matches!(
+            event.kind.as_str(),
+            "tool_start" | "PreToolUse" | "tool_end" | "PostToolUse"
+        )
 }
 
 fn is_idle_prompt(event: &AgentEvent) -> bool {
@@ -688,6 +730,10 @@ fn session_cwd(event: &AgentEvent) -> Option<String> {
 }
 
 fn preview_hook(event: &AgentEvent) -> Option<SessionHookPreview> {
+    if is_permission_prompt(event) {
+        return None;
+    }
+
     let text = preview_text(event)?;
     Some(SessionHookPreview {
         kind: event.kind.clone(),
@@ -711,6 +757,10 @@ fn preview_role(event: &AgentEvent) -> &'static str {
 }
 
 fn preview_text(event: &AgentEvent) -> Option<String> {
+    if is_ask_user_question_tool_hook(event) {
+        return tool_name(event).map(normalize_preview_text);
+    }
+
     first_non_empty_str(
         &event.payload,
         &[
@@ -1302,7 +1352,7 @@ mod tests {
     }
 
     #[test]
-    fn ask_user_question_notification_still_requires_attention() {
+    fn ask_user_question_permission_request_updates_preview_without_attention() {
         let log_path = temp_path("events-ask-user");
         let mut store = SessionStore::new(log_path, std::env::temp_dir());
         let now = Utc::now();
@@ -1310,7 +1360,7 @@ mod tests {
         store.apply_event(&event("codex", "SessionStart", now));
         store.apply_event(&event_with_payload(
             "codex",
-            "Notification",
+            "PermissionRequest",
             now + Duration::seconds(1),
             json!({
                 "cwd": "/tmp/project",
@@ -1325,8 +1375,68 @@ mod tests {
 
         let sessions = store.snapshot();
         assert_eq!(sessions.len(), 1);
-        assert_eq!(sessions[0].status, "attention");
-        assert!(sessions[0].needs_user_attention);
+        assert_eq!(sessions[0].status, "permission");
+        assert_eq!(sessions[0].status_detail, "Which option should I choose?");
+        assert!(!sessions[0].needs_user_attention);
+        assert!(!sessions[0].has_pending_permission);
+        assert_eq!(sessions[0].recent_hooks.len(), 1);
+        assert_eq!(sessions[0].recent_hooks[0].text, "Which option should I choose?");
+    }
+
+    #[test]
+    fn ask_user_question_hook_chain_hides_prompt_notification_and_deduplicates_preview() {
+        let log_path = temp_path("events-ask-user-chain");
+        let mut store = SessionStore::new(log_path, std::env::temp_dir());
+        let now = Utc::now();
+
+        store.apply_event(&event("claude", "SessionStart", now));
+        store.apply_event(&event_with_payload(
+            "claude",
+            "PreToolUse",
+            now + Duration::seconds(1),
+            json!({
+                "cwd": "/tmp/project",
+                "tool_name": "AskUserQuestion",
+                "tool_input": {
+                    "questions": [
+                        { "question": "今晚想吃什么？" }
+                    ]
+                }
+            }),
+        ));
+        store.apply_event(&event_with_payload(
+            "claude",
+            "PermissionRequest",
+            now + Duration::seconds(2),
+            json!({
+                "cwd": "/tmp/project",
+                "tool_name": "AskUserQuestion",
+                "tool_input": {
+                    "questions": [
+                        { "question": "今晚想吃什么？" }
+                    ]
+                }
+            }),
+        ));
+        store.apply_event(&event_with_payload(
+            "claude",
+            "Notification",
+            now + Duration::seconds(3),
+            json!({
+                "cwd": "/tmp/project",
+                "message": "Claude Code needs your attention",
+                "notification_type": "permission_prompt"
+            }),
+        ));
+
+        let sessions = store.snapshot();
+        assert_eq!(sessions.len(), 1);
+        assert_eq!(sessions[0].status, "permission");
+        assert!(!sessions[0].needs_user_attention);
+        assert!(!sessions[0].has_pending_permission);
+        assert_eq!(sessions[0].recent_hooks.len(), 2);
+        assert_eq!(sessions[0].recent_hooks[0].text, "今晚想吃什么？");
+        assert_eq!(sessions[0].recent_hooks[1].text, "AskUserQuestion");
     }
 
     #[test]

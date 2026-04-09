@@ -24,6 +24,7 @@ fn notification_body(event: &AgentEvent) -> Option<&'static str> {
     match event.kind.as_str() {
         "PermissionRequest" | "permission_request" => Some("有新的权限审批请求"),
         "Notification" | "notification" if is_idle_prompt(event) => None,
+        "Notification" | "notification" if is_ask_user_question(event) => None,
         "Notification" | "notification" => Some("Agent 需要你回到终端处理"),
         _ => None,
     }
@@ -35,6 +36,16 @@ fn is_idle_prompt(event: &AgentEvent) -> bool {
         .get("notification_type")
         .and_then(serde_json::Value::as_str)
         == Some("idle_prompt")
+}
+
+fn is_ask_user_question(event: &AgentEvent) -> bool {
+    event
+        .payload
+        .get("tool_name")
+        .or_else(|| event.payload.get("toolName"))
+        .or_else(|| event.payload.get("tool"))
+        .and_then(serde_json::Value::as_str)
+        == Some("AskUserQuestion")
 }
 
 #[cfg(test)]
@@ -82,6 +93,17 @@ mod tests {
                 json!({ "notification_type": "task_attention" }),
             )),
             Some("Agent 需要你回到终端处理")
+        );
+    }
+
+    #[test]
+    fn ask_user_question_does_not_trigger_notification() {
+        assert_eq!(
+            notification_body(&event(
+                "Notification",
+                json!({ "tool_name": "AskUserQuestion" }),
+            )),
+            None
         );
     }
 }

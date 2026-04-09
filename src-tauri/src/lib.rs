@@ -127,12 +127,16 @@ impl AppServices {
     }
 }
 
+fn is_ask_session(session: &session::SessionView) -> bool {
+    session.status == "permission" || session.has_pending_permission || session.needs_user_attention
+}
+
 fn derive_menu_bar_state(snapshot: &AppStateSnapshot) -> MenuBarState {
     if snapshot.permission_request.is_some()
         || snapshot
             .sessions
             .iter()
-            .any(|session| session.has_pending_permission || session.needs_user_attention)
+            .any(is_ask_session)
     {
         return MenuBarState::Ask;
     }
@@ -151,7 +155,7 @@ fn derive_menu_bar_summary(snapshot: &AppStateSnapshot) -> MenuBarSummary {
     snapshot.sessions.iter().fold(
         MenuBarSummary::default(),
         |mut summary, session| {
-            if session.has_pending_permission || session.needs_user_attention {
+            if is_ask_session(session) {
                 summary.ask_count += 1;
             } else if session.status == "idle" {
                 summary.idle_count += 1;
@@ -353,6 +357,37 @@ mod tests {
         ]));
 
         assert_eq!(state, MenuBarState::Working);
+    }
+
+    #[test]
+    fn menu_bar_state_does_not_treat_plain_running_session_as_ask() {
+        let state = derive_menu_bar_state(&snapshot(vec![session("running", false, false)]));
+
+        assert_eq!(state, MenuBarState::Working);
+    }
+
+    #[test]
+    fn menu_bar_state_treats_permission_status_as_ask() {
+        let state = derive_menu_bar_state(&snapshot(vec![session("permission", false, false)]));
+
+        assert_eq!(state, MenuBarState::Ask);
+    }
+
+    #[test]
+    fn menu_bar_summary_counts_permission_status_as_ask() {
+        let summary = derive_menu_bar_summary(&snapshot(vec![
+            session("permission", false, false),
+            session("idle", false, false),
+        ]));
+
+        assert_eq!(
+            summary,
+            MenuBarSummary {
+                ask_count: 1,
+                working_count: 0,
+                idle_count: 1,
+            }
+        );
     }
 
     #[test]
