@@ -152,7 +152,7 @@ export default function Settings() {
                     >
                       <div className="flex flex-wrap items-start justify-between gap-2">
                         <div className="flex min-w-0 items-center gap-2.5">
-                          <AgentAvatar size="sm" source={agent} />
+                          <AgentAvatar framed={false} size="sm" source={agent} />
                           <div className="min-w-0">
                             <div className="text-sm font-medium">{agentSourceLabel(agent)}</div>
                             <div className="mt-0.5 truncate font-[var(--font-mono)] text-[10px] text-[var(--text-disabled)]">

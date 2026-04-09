@@ -67,7 +67,7 @@ export default function Capsule({
         height: capsuleHeight(sessions, hasPermission, expanded),
       }}
       transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
-      className={`window-drag mx-auto mt-0 overflow-hidden rounded-b-xl border border-[var(--border)] bg-[rgba(0,0,0,0.92)] ${
+      className={`window-drag mx-auto mt-0 overflow-hidden rounded-b-xl border border-[var(--border)] bg-[var(--surface)] ${
         hasAttention ? 'attention-ring' : ''
       }`}
     >

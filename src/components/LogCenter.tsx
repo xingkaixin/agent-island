@@ -272,7 +272,7 @@ export default function LogCenter({
                     onClick={() => toggleSource(source)}
                     type="button"
                   >
-                    <AgentAvatar size="sm" source={source} />
+                    <AgentAvatar framed={false} size="sm" source={source} />
                     <span className="text-[11px] font-medium">{agentSourceLabel(source)}</span>
                   </button>
                 ))}
@@ -349,6 +349,7 @@ export default function LogCenter({
                   )}
                   <div className="mt-0.5 shrink-0">
                     <AgentAvatar
+                      framed={false}
                       size="sm"
                       source={
                         agents.includes(entry.source as AgentSource)

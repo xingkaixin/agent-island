@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 :root {
-  color-scheme: dark;
+  color-scheme: light;
   font-family:
     "Space Grotesk",
     -apple-system,
@@ -10,15 +10,15 @@
     sans-serif;
 
   /* Nothing color tokens */
-  --black: #000000;
-  --surface: #111111;
-  --surface-raised: #1A1A1A;
-  --border: #222222;
-  --border-visible: #333333;
-  --text-disabled: #666666;
-  --text-secondary: #999999;
-  --text-primary: #E8E8E8;
-  --text-display: #FFFFFF;
+  --black: #F5F5F5;
+  --surface: #FFFFFF;
+  --surface-raised: #F0F0F0;
+  --border: #E8E8E8;
+  --border-visible: #CCCCCC;
+  --text-disabled: #999999;
+  --text-secondary: #666666;
+  --text-primary: #1A1A1A;
+  --text-display: #000000;
   --accent: #D71921;
   --danger: #D71921;
   --danger-hover: #C8161D;
@@ -26,7 +26,7 @@
   --danger-soft: rgba(215, 25, 33, 0.12);
   --success: #4A9E5C;
   --warning: #D4A843;
-  --interactive: #5B9BF6;
+  --interactive: #007AFF;
 
   /* Typography */
   --font-display: "Doto", monospace;
@@ -45,7 +45,7 @@
   --radius-xl: 16px;
   --radius-pill: 999px;
 
-  background: transparent;
+  background: var(--black);
   color: var(--text-primary);
 }
 
@@ -58,7 +58,7 @@ body,
 }
 
 body {
-  background: transparent;
+  background: var(--black);
   overflow: hidden;
   user-select: none;
 }
@@ -94,7 +94,7 @@ input {
 
 .menu-panel {
   position: relative;
-  background: rgba(0, 0, 0, 0.92);
+  background: var(--surface);
   border: 1px solid var(--border);
 }
 
@@ -219,7 +219,7 @@ input {
 }
 
 .agent-group {
-  backdrop-filter: blur(10px);
+  background: var(--surface-raised);
 }
 
 .session-row-v2 {
@@ -257,11 +257,6 @@ input {
   width: 2.75rem;
   height: 2.75rem;
   border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(245, 245, 245, 0.92));
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.55),
-    0 0 0 1px rgba(255, 255, 255, 0.04);
 }
 
 .session-project-name {
@@ -278,7 +273,7 @@ input {
   padding: 0;
   border: 0;
   background: transparent;
-  color: rgba(255, 255, 255, 0.92);
+  color: var(--text-secondary);
   transition: color var(--duration-fast) var(--ease-out);
 }
 
@@ -313,7 +308,7 @@ input {
   flex: 0 0 auto;
   align-items: center;
   justify-content: center;
-  color: rgba(255, 255, 255, 0.86);
+  color: var(--text-primary);
 }
 
 .session-status-badge {
@@ -417,7 +412,7 @@ input {
 
 .hook-primary-btn:disabled {
   border-color: var(--border-visible);
-  background: #262626;
+  background: var(--surface-raised);
   color: var(--text-secondary);
 }
 
@@ -433,7 +428,7 @@ input {
 
 .hook-secondary-btn:disabled {
   border-color: var(--border-visible);
-  background: #1a1a1a;
+  background: var(--surface-raised);
   color: var(--text-secondary);
 }
 
@@ -465,7 +460,7 @@ input {
 
 .log-center-shell {
   border-color: var(--border);
-  background: var(--black);
+  background: var(--surface);
 }
 
 .log-toolbar-actions,
@@ -784,7 +779,7 @@ input {
 .agent-filter-chip[data-active="true"] {
   border-color: var(--text-primary);
   background: transparent;
-  color: var(--text-display);
+  color: var(--text-primary);
 }
 
 .log-kind-chip.filter-chip:not([data-active="true"]),
@@ -840,7 +835,7 @@ input {
 
 .log-pre {
   border: 1px solid var(--border);
-  background: var(--black);
+  background: var(--surface-raised);
   color: var(--text-secondary);
   font-family: var(--font-mono);
 }

@@ -158,7 +158,7 @@ export default function App() {
       <motion.div
         {...enterMotion}
         transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-        className={`menu-panel mx-auto flex h-full max-h-full w-full max-w-[420px] flex-col overflow-hidden rounded-xl border border-[var(--border)] bg-[rgba(0,0,0,0.92)] ${
+        className={`menu-panel mx-auto flex h-full max-h-full w-full max-w-[420px] flex-col overflow-hidden rounded-xl border border-[var(--border)] ${
           hasAttention || permissionRequest ? 'attention-ring' : ''
         }`}
       >
@@ -288,11 +288,11 @@ export default function App() {
                       delay: 0.03 * groupIndex,
                       ease: [0.16, 1, 0.3, 1],
                     }}
-                    className="agent-group rounded-xl border border-[var(--border)] bg-[rgba(255,255,255,0.01)] p-2"
+                    className="agent-group rounded-xl border border-[var(--border)] p-2"
                   >
                     <div className="flex items-center justify-between gap-2 px-1 pb-2">
                       <div className="flex min-w-0 items-center gap-2">
-                        <AgentAvatar size="sm" source={group.source} />
+                        <AgentAvatar framed={false} size="sm" source={group.source} />
                         <span className="truncate font-[var(--font-mono)] text-[11px] font-bold uppercase tracking-[0.08em] text-[var(--text-primary)]">
                           {agentSourceLabel(group.source).replace(' Code', '')}
                         </span>

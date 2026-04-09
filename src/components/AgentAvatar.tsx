@@ -25,6 +25,7 @@ interface AgentAvatarProps {
   status?: SessionStatus;
   highlighted?: boolean;
   size?: 'sm' | 'md';
+  framed?: boolean;
 }
 
 export function agentSourceLabel(source: AgentSource) {
@@ -36,12 +37,15 @@ export default function AgentAvatar({
   status,
   highlighted = false,
   size = 'md',
+  framed = true,
 }: AgentAvatarProps) {
   return (
     <span
       className={clsx(
-        'relative flex shrink-0 items-center justify-center overflow-hidden rounded-full border bg-[var(--surface-raised)]',
-        statusTone(status, highlighted),
+        'relative flex shrink-0 items-center justify-center overflow-hidden',
+        framed && 'rounded-full bg-[var(--surface-raised)]',
+        framed && 'border',
+        framed && statusTone(status, highlighted),
         size === 'sm' ? 'h-9 w-9' : 'h-11 w-11',
       )}
     >
