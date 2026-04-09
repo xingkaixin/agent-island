@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Bot, Sparkles, UserRound, X } from 'lucide-react';
 import { forceRemoveSession } from '../lib/tauri';
-import type { SessionView } from '../types/agent';
+import type { SessionHookPreview, SessionView } from '../types/agent';
 import { agentSourceLabel } from './AgentAvatar';
 import SessionStatusSprite from './SessionStatusSprite';
 
@@ -34,7 +34,7 @@ function launcherLabel(session: SessionView) {
   return session.launcher?.name ?? agentSourceLabel(session.source);
 }
 
-function hookIcon(role?: SessionView['recentHooks'][number]['role'] | null) {
+function hookIcon(role?: SessionHookPreview['role'] | null) {
   switch (role) {
     case 'user':
       return <UserRound className="h-[0.72rem] w-[0.72rem]" aria-hidden />;
@@ -49,7 +49,7 @@ export default function SessionRow({ session }: { session: SessionView }) {
   const iconSrc = launcherIconSrc(session);
   const launcherName = launcherLabel(session);
   const projectName = sessionProjectName(session);
-  const hooks = session.recentHooks.slice(0, 3).toReversed();
+  const hooks = session.recentHooks.slice(0, 3).reverse();
   const [isRemoving, setIsRemoving] = useState(false);
 
   async function handleForceRemove() {
