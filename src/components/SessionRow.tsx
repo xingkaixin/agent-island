@@ -5,8 +5,6 @@ import type { SessionView } from '../types/agent';
 import { agentSourceLabel } from './AgentAvatar';
 import SessionStatusSprite from './SessionStatusSprite';
 
-const hookSlots = ['first', 'second', 'third'] as const;
-
 function formatWorkspaceLabel(cwd?: string | null) {
   if (!cwd) {
     return null;
@@ -51,11 +49,7 @@ export default function SessionRow({ session }: { session: SessionView }) {
   const iconSrc = launcherIconSrc(session);
   const launcherName = launcherLabel(session);
   const projectName = sessionProjectName(session);
-  const hooks = {
-    first: session.recentHooks[2] ?? null,
-    second: session.recentHooks[1] ?? null,
-    third: session.recentHooks[0] ?? null,
-  };
+  const hooks = session.recentHooks.slice(0, 3).toReversed();
   const [isRemoving, setIsRemoving] = useState(false);
 
   async function handleForceRemove() {
@@ -103,25 +97,19 @@ export default function SessionRow({ session }: { session: SessionView }) {
           </div>
         </div>
 
-        <div className="mt-2 space-y-1">
-          {hookSlots.map((slot) => {
-            const hook = hooks[slot];
-            return (
+        {hooks.length > 0 ? (
+          <div className="mt-2 space-y-1">
+            {hooks.map((hook) => (
               <div
-                key={
-                  hook
-                    ? `${session.id}-${hook.kind}-${hook.role}-${hook.text}`
-                    : `${session.id}-empty-${slot}`
-                }
+                key={`${session.id}-${hook.kind}-${hook.role}-${hook.text}`}
                 className="session-hook-line"
-                data-empty={hook ? undefined : 'true'}
               >
-                <span className="session-hook-icon">{hookIcon(hook?.role)}</span>
-                <span className="min-w-0 truncate">{hook?.text ?? '\u00a0'}</span>
+                <span className="session-hook-icon">{hookIcon(hook.role)}</span>
+                <span className="min-w-0 truncate">{hook.text}</span>
               </div>
-            );
-          })}
-        </div>
+            ))}
+          </div>
+        ) : null}
       </div>
     </div>
   );

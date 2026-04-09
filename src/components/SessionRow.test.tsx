@@ -39,17 +39,17 @@ describe('SessionRow', () => {
     forceRemoveSession.mockReset();
   });
 
-  it('显示项目名、original app 回退名和最近三条 hook 占位', () => {
+  it('没有消息时不显示 hook 列表', () => {
     const { container } = render(<SessionRow session={buildSession()} />);
 
     expect(screen.getByText('agent-island')).toBeInTheDocument();
     expect(screen.getByText('Claude Code')).toBeInTheDocument();
-    expect(container.querySelectorAll('.session-hook-line')).toHaveLength(3);
+    expect(container.querySelectorAll('.session-hook-line')).toHaveLength(0);
     expect(screen.getByTestId('session-status-sprite')).toBeInTheDocument();
   });
 
-  it('任意会话有来源图标时显示图标和名称', () => {
-    render(
+  it('按真实条数显示最近消息并保留最多三条', () => {
+    const { container } = render(
       <SessionRow
         session={buildSession({
           source: 'codex',
@@ -61,8 +61,10 @@ describe('SessionRow', () => {
             detectedFrom: 'processTree',
           },
           recentHooks: [
-            { kind: 'UserPromptSubmit', role: 'user', text: 'Fix the login bug' },
-            { kind: 'Stop', role: 'assistant', text: 'Done' },
+            { kind: 'Stop', role: 'assistant', text: '第四条' },
+            { kind: 'UserPromptSubmit', role: 'user', text: '第三条' },
+            { kind: 'Notification', role: 'system', text: '第二条' },
+            { kind: 'UserPromptSubmit', role: 'user', text: '第一条' },
           ],
         })}
       />,
@@ -70,8 +72,11 @@ describe('SessionRow', () => {
 
     expect(screen.getByText('Ghostty')).toBeInTheDocument();
     expect(screen.getByAltText('Ghostty')).toHaveAttribute('src', 'data:image/png;base64,ghostty');
-    expect(screen.getByText('Fix the login bug')).toBeInTheDocument();
-    expect(screen.getByText('Done')).toBeInTheDocument();
+    expect(container.querySelectorAll('.session-hook-line')).toHaveLength(3);
+    expect(screen.queryByText('第一条')).not.toBeInTheDocument();
+    expect(screen.getByText('第二条')).toBeInTheDocument();
+    expect(screen.getByText('第三条')).toBeInTheDocument();
+    expect(screen.getByText('第四条')).toBeInTheDocument();
   });
 
   it('来源图标缺失时只显示名称', () => {

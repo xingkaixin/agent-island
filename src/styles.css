@@ -316,10 +316,6 @@ input {
   color: rgba(255, 255, 255, 0.86);
 }
 
-.session-hook-line[data-empty="true"] {
-  opacity: 0.35;
-}
-
 .session-status-badge {
   border: 1px solid var(--border-visible);
   background: transparent;
